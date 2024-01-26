@@ -7,6 +7,7 @@ classes:
 """
 from django.conf import settings
 from django.http import Http404, parse_cookie
+from django.utils.deprecation import MiddlewareMixin
 from django.utils.translation import gettext_lazy as _
 
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
@@ -156,7 +157,7 @@ class TenantExistMiddleware:
         raise Http404
 
 
-class PreserveUserLanguageCookieMiddleware:
+class PreserveUserLanguageCookieMiddleware(MiddlewareMixin):
     """This middleware ensure that in the COOKIES property the LANGUAGE_COOKIE_NAME
     key has to be the cookie sent by the user and not other,
     because it could be modified previously by other.
