@@ -63,3 +63,10 @@ def register_xapi_transformers():
     """This method just import the event transformers in order to register all of them."""
     # pylint: disable=import-outside-toplevel, unused-import
     from eox_nelp.processors.xapi import event_transformers as xapi_event_transformers  # noqa: F401
+
+
+def patch_generate_password():
+    """"""
+    from openedx.core.djangoapps.user_authn import utils
+    from eox_nelp.user_authn import generate_password
+    utils.generate_password = generate_password
