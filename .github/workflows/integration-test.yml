@@ -1,0 +1,18 @@
+name: Tutor Integration Tests
+on: [pull_request]
+
+jobs:
+  integration-test:
+    name: Tutor Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tutor_version: ['==18.2.2', '==20.0.0']
+    steps:
+      - name: Run Integration Tests
+        uses: eduNEXT/integration-test-in-tutor@main
+        with:
+          tutor_version: ${{ matrix.tutor_version }}
+          app_name: 'eox-nelp'
+          openedx_imports_test_file_path: 'eox_nelp/edxapp_wrapper/tests/integration/test_backends.py'
