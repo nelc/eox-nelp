@@ -11,7 +11,6 @@ def test_current_settings_code_imports():
     import eox_nelp.edxapp_wrapper.backends.branding_m_v1
     import eox_nelp.edxapp_wrapper.backends.bulk_email_m_v1
     import eox_nelp.edxapp_wrapper.backends.certificates_m_v1
-    import eox_nelp.edxapp_wrapper.backends.cms_api_m_v1
     import eox_nelp.edxapp_wrapper.backends.course_api_m_v1
     import eox_nelp.edxapp_wrapper.backends.course_blocks_m_v1
     import eox_nelp.edxapp_wrapper.backends.course_creators_k_v1
