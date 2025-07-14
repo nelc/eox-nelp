@@ -22,3 +22,5 @@ django-password-validators==1.7.3
 edx-django-utils==5.2.0
 # eox tenant compatible version
 eox-tenant<=11.2.0
+# Higher version are not compatible with python 3.10
+edx-opaque-keys<=2.12
