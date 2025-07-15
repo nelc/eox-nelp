@@ -6,6 +6,7 @@ Classes:
 import datetime
 import unittest
 
+import pytest
 from ddt import data, ddt
 from django.http import Http404
 from django.utils import timezone
@@ -21,6 +22,7 @@ from eox_nelp.tests.utils import generate_list_mock_data
 
 
 @ddt
+@pytest.mark.django_db
 class CreateCourseNotificationsTestCase(unittest.TestCase):
     """Test class for function create_course_notifications."""
 
@@ -28,6 +30,7 @@ class CreateCourseNotificationsTestCase(unittest.TestCase):
         """ Set common conditions for test cases."""
         self.course = Mock()
         self.course_id = "course-v1:test+Cx105+2022_T4"
+        CourseOverview.objects.get_or_create(id=self.course_id)
         modulestore.return_value.get_course.return_value = self.course
 
     def tearDown(self):
@@ -346,6 +349,7 @@ class CreateCourseNotificationsTestCase(unittest.TestCase):
             )
 
 
+@pytest.mark.django_db
 class NotifyUpcomingCourseDueDateByIdTestCase(unittest.TestCase):
     """Test class for task  notify_upcoming_course_due_date_by_id"""
     @patch("eox_nelp.notifications.tasks.notify_upcoming_course_due_date")

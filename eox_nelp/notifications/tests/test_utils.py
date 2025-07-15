@@ -51,13 +51,17 @@ class SendEmailMultiAlternativeTestCase(TestCase):
 
 class GetXBlockFromUsageKeyStringTestCase(TestCase):
     """Test class for function `get_xblock_from_usage_key_string`."""
+
+    def tearDown(self):
+        """Restore mocks' state"""
+        modulestore.reset_mock()
+
     def test_get_xblock_from_usage_key_string(self):
         """Test get the usage_xblock using usage_key_string.
          Expected behavior:
             - modulestore().get_item is called with the right values.
         """
         usage_key_string = "block-v1:obi+wan+course+type@sequential+block@fb7951843736445bb46f30bbb60134ea"
-        modulestore.reset_mock()
         usage_key = UsageKey.from_string(usage_key_string)
 
         get_xblock_from_usage_key_string(usage_key_string)
@@ -69,7 +73,6 @@ class GetXBlockFromUsageKeyStringTestCase(TestCase):
         Expected behavior:
             - modulestore().get_item is not called.
         """
-        modulestore.reset_mock()
         usage_key_string = "block-wrong:obi+wan+course+type@sequential+block@fb7951843736445bb46f30bbb60134ea"
 
         get_xblock_from_usage_key_string(usage_key_string)
@@ -79,13 +82,17 @@ class GetXBlockFromUsageKeyStringTestCase(TestCase):
 
 class GetXBlockCourseFromUsageKeyStringTestCase(TestCase):
     """Test class for function `get_xblock_course_from_usage_key_string`."""
+
+    def tearDown(self):
+        """Restore mocks' state"""
+        modulestore.reset_mock()
+
     def test_get_xblock_course_from_usage_key_string(self):
         """Test get the course_xblock using usage_key_string.
          Expected behavior:
             - modulestore().get_course is called with the right values.
         """
         usage_key_string = "block-v1:obi+wan+course+type@sequential+block@fb7951843736445bb46f30bbb60134ea"
-        modulestore.reset_mock()
         course_key = UsageKey.from_string(usage_key_string).course_key
 
         get_xblock_course_from_usage_key_string(usage_key_string)
@@ -97,7 +104,6 @@ class GetXBlockCourseFromUsageKeyStringTestCase(TestCase):
          Expected behavior:
             - modulestore().get_course is not called.
         """
-        modulestore.reset_mock()
         usage_key_string = "block-wrong:obi+wan+course+type@sequential+block@fb7951843736445bb46f30bbb60134ea"
 
         get_xblock_course_from_usage_key_string(usage_key_string)

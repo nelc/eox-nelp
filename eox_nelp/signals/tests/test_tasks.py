@@ -8,6 +8,7 @@ Classes:
 """
 import unittest
 
+import pytest
 from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt
 from django.conf import settings
@@ -40,6 +41,7 @@ TRUTHY_ACTIVATION_VALUES = [1, "true", "activated", ["activated"], True, {"activ
 
 
 @ddt
+@pytest.mark.django_db
 class DipatchFuturexProgressTestCase(unittest.TestCase):
     """Test class for function `dispatch_futurex_progress`"""
 
@@ -176,6 +178,7 @@ class PostFuturexProgressTestCase(unittest.TestCase):
         self.assertEqual(logs.output, [f"INFO:{tasks.__name__}:{log_post}"])
 
 
+@pytest.mark.django_db
 class GetCompletionSummaryTestCase(unittest.TestCase):
     """Test class for get_completion_summary"""
 
@@ -195,6 +198,7 @@ class GetCompletionSummaryTestCase(unittest.TestCase):
         courses_mock.get_course_blocks_completion_summary.assert_called_with(course_key, user)
 
 
+@pytest.mark.django_db
 class GenerateProgressEnrollmentDataTestCase(unittest.TestCase):
     """Test class for _generate_progress_enrollment_data."""
 
@@ -359,6 +363,7 @@ class GenerateProgressEnrollmentDataTestCase(unittest.TestCase):
         self.assertDictEqual(expected_data, progress_data)
 
 
+@pytest.mark.django_db
 class EmitSubsectionAttemptEventTaskTestCase(unittest.TestCase):
     """Test class for emit_subsection_attempt_event_task method."""
 

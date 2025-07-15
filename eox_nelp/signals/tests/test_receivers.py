@@ -11,6 +11,7 @@ Classes:
 """
 import unittest
 
+import pytest
 from custom_reg_form.models import ExtraInfo
 from ddt import ddt
 from django.contrib.auth import get_user_model
@@ -48,6 +49,7 @@ User = get_user_model()
 UserSignupSource = get_user_signup_source()
 
 
+@pytest.mark.django_db
 class CourseGradeChangedProgressPublisherTestCase(unittest.TestCase):
     """Test class for course_grade_changed_progress_publisher"""
 
@@ -273,6 +275,7 @@ class CertificatePublisherTestCase(unittest.TestCase):
         ])
 
 
+@pytest.mark.django_db
 class EnrollmentPublisherTestCase(unittest.TestCase):
     """Test class for enrollment_publisher."""
 
@@ -671,6 +674,7 @@ class MtCoursePassedHandlerTestCase(TestCase):
         )
 
 
+@pytest.mark.django_db
 class MtCourseFailedHandlerTestCase(unittest.TestCase):
     """Test class for mt_course_failed_handler function."""
 
@@ -744,6 +748,7 @@ class PearsonVueCompletionHandlerTestCase(unittest.TestCase):
 
 
 @ddt
+@pytest.mark.django_db
 class PearsonVueCoursePassedHandlerTestCase(unittest.TestCase):
     """Test class for mt_course_passed_handler function."""
     course_id = "course-v1:test+Cz105+2022_T4"
@@ -772,6 +777,7 @@ class PearsonVueCoursePassedHandlerTestCase(unittest.TestCase):
         )
 
 
+@pytest.mark.django_db
 class CreateUserSignUpSourceByEnrollmentTestCase(unittest.TestCase):
     """Test class for create_usersignupsource_by_enrollment."""
 
@@ -873,6 +879,7 @@ class CreateUserSignUpSourceByEnrollmentTestCase(unittest.TestCase):
         )
 
 
+@pytest.mark.django_db
 class ReceiveCoursePublishTestCase(unittest.TestCase):
     """Test class for receive_course_created function."""
 

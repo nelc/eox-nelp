@@ -23,7 +23,7 @@ class TestInfoView(TestCase):
         """
         url = f"{LMS_BASE_URL}/eox-nelp/eox-info/"
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
 
         response_data = response.json()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
