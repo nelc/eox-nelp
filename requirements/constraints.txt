@@ -9,11 +9,7 @@
 # linking to it here is good.
 
 # openedx redwood version is working with 4.0.
-Django<4.1
-# json api has to be compatible with rest-framework 3.12.4(maple)
-djangorestframework-jsonapi==5.0.0
-djangorestframework==3.12.4
-# maple django edx rest extensions
+Django<4.3
 edx-drf-extensions==8.0.0
 # maple django filter version
 django-filter==21.1

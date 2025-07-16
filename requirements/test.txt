@@ -25,7 +25,6 @@ asgiref==3.9.1
     #   -r requirements/base.txt
     #   django
     #   django-countries
-    #   django-simple-history
 astroid==3.3.11
     # via pylint
 attrs==25.3.0
@@ -40,11 +39,11 @@ billiard==4.2.1
     # via
     #   -r requirements/base.txt
     #   celery
-boto3==1.39.4
+boto3==1.39.7
     # via
     #   -r requirements/base.txt
     #   sqs-event-publisher
-botocore==1.39.4
+botocore==1.39.7
     # via
     #   -r requirements/base.txt
     #   boto3
@@ -117,7 +116,7 @@ defusedxml==0.7.1
     #   social-auth-core
 dill==0.4.0
     # via pylint
-django==4.0.10
+django==4.2.23
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.txt
@@ -127,6 +126,7 @@ django==4.0.10
     #   django-oauth-toolkit
     #   django-password-validators
     #   django-phonenumber-field
+    #   django-simple-history
     #   django-waffle
     #   djangorestframework
     #   djangorestframework-jsonapi
@@ -183,9 +183,9 @@ django-password-validators==1.7.3
     # via
     #   -c requirements/constraints.txt
     #   -r requirements/base.txt
-django-phonenumber-field[phonenumbers]==8.0.0
+django-phonenumber-field[phonenumbers]==8.1.0
     # via -r requirements/base.txt
-django-simple-history==3.6.0
+django-simple-history==3.10.1
     # via
     #   -r requirements/base.txt
     #   edx-proctoring
@@ -201,9 +201,8 @@ django-webpack-loader==3.2.1
     # via
     #   -r requirements/base.txt
     #   edx-proctoring
-djangorestframework==3.12.4
+djangorestframework==3.16.0
     # via
-    #   -c requirements/constraints.txt
     #   -r requirements/base.txt
     #   djangorestframework-jsonapi
     #   drf-jwt
@@ -212,10 +211,8 @@ djangorestframework==3.12.4
     #   edx-drf-extensions
     #   edx-proctoring
     #   eox-core
-djangorestframework-jsonapi==5.0.0
-    # via
-    #   -c requirements/constraints.txt
-    #   -r requirements/base.txt
+djangorestframework-jsonapi==7.1.0
+    # via -r requirements/base.txt
 dnspython==2.7.0
     # via
     #   -r requirements/base.txt
@@ -334,7 +331,7 @@ jmespath==1.0.1
     #   -r requirements/base.txt
     #   boto3
     #   botocore
-jsonfield==3.1.0
+jsonfield==3.2.0
     # via
     #   -r requirements/base.txt
     #   edx-proctoring
@@ -504,7 +501,6 @@ python3-openid==3.2.0
 pytz==2025.2
     # via
     #   -r requirements/base.txt
-    #   django-oauth-toolkit
     #   drf-yasg
     #   edx-proctoring
     #   event-tracking

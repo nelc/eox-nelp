@@ -187,7 +187,7 @@ class ExperienceTestMixin:
 
         response = self.client.get(raw_url_endpoint)
 
-        self.assertIn(response.headers["Content-Type"], ["text/html"])
+        self.assertIn(response.headers["Content-Type"], ["text/html; charset=utf-8"])
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -195,6 +195,7 @@ class UnitExperienceTestMixin(ExperienceTestMixin):
     """
     A mixin class with test to use  for testing UnitExperience Views.
     """
+
     def test_get_specific_item_id(self):
         """
         Test a  get  request to the detail endpoint for the desired view.
@@ -244,7 +245,11 @@ class UnitExperienceTestMixin(ExperienceTestMixin):
         response = self.client.get(url_endpoint)
 
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
-        self.assertContains(response, "Not found.", status_code=status.HTTP_404_NOT_FOUND)
+        self.assertContains(
+            response,
+            f"No {self.base_data.get('data').get('type')} matches the given query.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
 
     def test_post_item_id(self):
         """
@@ -356,6 +361,7 @@ class CourseExperienceTestMixin(ExperienceTestMixin):
     """
     A mixin class with test to use  for testing CourseExperience Views.
     """
+
     def test_get_specific_course_id(self):
         """
         Test a  get  request to the detail endpoint for the desired view.
@@ -402,7 +408,11 @@ class CourseExperienceTestMixin(ExperienceTestMixin):
         response = self.client.get(url_endpoint)
 
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
-        self.assertContains(response, "Not found.", status_code=status.HTTP_404_NOT_FOUND)
+        self.assertContains(
+            response,
+            f"No {self.base_data.get('data').get('type')} matches the given query.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
 
     def test_post_course_id(self):
         """
