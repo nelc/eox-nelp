@@ -26,6 +26,7 @@ class TestInfoView(TestCase):
         response = requests.get(url, timeout=5)
 
         response_data = response.json()
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("version", response_data)
         self.assertIn("name", response_data)
