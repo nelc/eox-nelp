@@ -5,7 +5,6 @@ Classes:
 """
 import unittest
 
-import pytest
 from django.utils import timezone
 from mock import patch
 
@@ -14,7 +13,6 @@ from eox_nelp.notifications import models
 from eox_nelp.notifications.models import UpcomingCourseDueDate
 
 
-@pytest.mark.django_db
 class UpcomingCourseDueDateTestCase(unittest.TestCase):
     """Test class for model UpcomingCourseDueDate"""
     @patch("eox_nelp.notifications.tasks.notify_upcoming_course_due_date_by_id")

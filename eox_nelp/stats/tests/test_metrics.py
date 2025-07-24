@@ -9,7 +9,6 @@ Classes:
 """
 import unittest
 
-import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
@@ -93,7 +92,6 @@ class TestGetInstructorsMetric(unittest.TestCase):
         distinct_result.count.assert_called_once_with()
 
 
-@pytest.mark.django_db
 class TestGetLearnersMetric(unittest.TestCase):
     """Tests cases for get_learners_metric function."""
 
@@ -182,7 +180,6 @@ class TestGetCoursesMetrics(unittest.TestCase):
         self.assertEqual(4, get_course_metrics_mock.call_count)
 
 
-@pytest.mark.django_db
 class TestGetCourseMetrics(unittest.TestCase):
     """Tests cases for get_courses_metrics function."""
 

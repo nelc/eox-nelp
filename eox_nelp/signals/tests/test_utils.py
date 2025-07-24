@@ -5,7 +5,6 @@ Classes:
 """
 import unittest
 
-import pytest
 from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt
 from django.conf import settings
@@ -24,7 +23,6 @@ WRONG_NATIONAL_IDS = [0, "", "324234", "VADER", "3666888999", "166688899", "في
 SAML_EXTRA_ASSOCIATIONS_LIST = ["1666888998ASDF", "1222666444a6ca", "12226664443242344334534543", "1222666444#@$%"]
 
 
-@pytest.mark.django_db
 class UserHasPassingGradeTestCase(unittest.TestCase):
     """Test class for function `_user_has_passing_grade`"""
 

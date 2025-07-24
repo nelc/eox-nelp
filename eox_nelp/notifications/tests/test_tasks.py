@@ -6,7 +6,6 @@ Classes:
 import datetime
 import unittest
 
-import pytest
 from ddt import data, ddt
 from django.http import Http404
 from django.utils import timezone
@@ -22,7 +21,6 @@ from eox_nelp.tests.utils import generate_list_mock_data
 
 
 @ddt
-@pytest.mark.django_db
 class CreateCourseNotificationsTestCase(unittest.TestCase):
     """Test class for function create_course_notifications."""
 
@@ -349,7 +347,6 @@ class CreateCourseNotificationsTestCase(unittest.TestCase):
             )
 
 
-@pytest.mark.django_db
 class NotifyUpcomingCourseDueDateByIdTestCase(unittest.TestCase):
     """Test class for task  notify_upcoming_course_due_date_by_id"""
     @patch("eox_nelp.notifications.tasks.notify_upcoming_course_due_date")

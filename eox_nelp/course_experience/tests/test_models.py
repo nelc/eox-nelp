@@ -6,7 +6,6 @@ Classes:
 """
 import unittest
 
-import pytest
 from django.contrib.auth import get_user_model
 from mock import patch
 
@@ -16,7 +15,6 @@ from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 User = get_user_model()
 
 
-@pytest.mark.django_db
 class BaseFeedbackTestCase:
     """Base class for feedback models."""
 
