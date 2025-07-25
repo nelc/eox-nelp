@@ -28,6 +28,7 @@ class CreateCourseNotificationsTestCase(unittest.TestCase):
         """ Set common conditions for test cases."""
         self.course = Mock()
         self.course_id = "course-v1:test+Cx105+2022_T4"
+        CourseOverview.objects.get_or_create(id=self.course_id)
         modulestore.return_value.get_course.return_value = self.course
 
     def tearDown(self):

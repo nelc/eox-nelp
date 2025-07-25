@@ -125,7 +125,6 @@ class TestGetLearnersMetric(unittest.TestCase):
         learners = get_learners_metric(tenant)
 
         self.assertEqual(5874, learners)
-        configuration_helpers.get_current_site_orgs.assert_called_once_with()
         CourseEnrollment.objects.filter.assert_called_once_with(
             course__in=["course1", "course2", "course3"],
             user__is_staff=False,

@@ -6,7 +6,7 @@ bridgekeeper
 Django
 django-filter
 djangorestframework
-djangorestframework-jsonapi==5.0.0
+djangorestframework-jsonapi
 django-password-validators==1.7.3
 django-phonenumber-field[phonenumbers]
 edx-django-utils

@@ -1,0 +1,38 @@
+name: Tutor Integration Tests
+on: [pull_request]
+
+jobs:
+  integration-redwood-test:
+    name: Tutor Redwood Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tutor_version: ['<19.0.0']
+    steps:
+      - name: Run Redwood Integration Tests
+        uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        with:
+          tutor_version: ${{ matrix.tutor_version }}
+          app_name: 'eox-nelp'
+          openedx_private_requirements: "git@github.com:nelc/nelp-custom-registration-fields.git@main git@github.com:nelc/external-api-clients.git@v1.0.0 git@github.com:nelc/sqs-event-publisher.git@v0.1.0"
+          openedx_imports_test_file_path: 'eox_nelp/edxapp_wrapper/tests/integration/test_backends.py'
+          openedx_extra_pip_requirements: "edx-event-routing-backends==v9.3.2"
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+  integration-teak-test:
+    name: Tutor Teak Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tutor_version: ['<21.0.0']
+    steps:
+      - name: Run Teak Integration Tests
+        uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        with:
+          tutor_version: ${{ matrix.tutor_version }}
+          app_name: 'eox-nelp'
+          openedx_private_requirements: "git@github.com:nelc/nelp-custom-registration-fields.git@main git@github.com:nelc/external-api-clients.git@v1.0.0 git@github.com:nelc/sqs-event-publisher.git@v0.1.0"
+          openedx_imports_test_file_path: 'eox_nelp/edxapp_wrapper/tests/integration/test_backends.py'
+          openedx_extra_pip_requirements: "edx-event-routing-backends==v9.3.2"
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}

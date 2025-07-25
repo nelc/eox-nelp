@@ -57,7 +57,7 @@ quality: clean install-test-reqs## check coding style with pycodestyle and pylin
 	$(TOX) isort --check-only --diff ./eox_nelp
 
 python-test: clean install-test-reqs## Run test suite.
-	$(TOX) coverage run --source ./eox_nelp manage.py test
+	$(TOX) coverage run --omit="./eox_nelp/tests/integration/*" --source="./eox_nelp" -m pytest -s ./eox_nelp --ignore-glob='**/integration/*'
 	$(TOX) coverage report -m --fail-under=93
 
 complexity: clean install-test-reqs## Run complexity suite with flake8.
@@ -99,3 +99,6 @@ pull_react_translations:
 	$(intl_imports) frontend-platform paragon frontend-essentials
 	cp -r src/i18n/* eox_nelp/i18n/
 	rm -rf src
+
+run-integration-tests: install-test-reqs
+	pytest -rPf ./eox_nelp/tests/integration
