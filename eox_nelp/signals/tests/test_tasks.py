@@ -493,21 +493,35 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
 
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_update_training_stage_call(self, api_mock):
-        """Test when the feature flag has been set and the api call has been executed.
+        """Test when the feature flag has been set and the API call has been executed.
 
         Expected behavior:
             - MinisterOfTourismApiClient mock has been called once.
             - update_training_stage was called with the right parameters.
+            - logger.info outputs the expected log message.
         """
         course_id = "course-v1:test+Cx105+2022_T4"
         national_id = "1245789652"
         stage_result = 1
-
-        update_mt_training_stage(
-            course_id=course_id,
-            national_id=national_id,
-            stage_result=stage_result,
+        response_mock = {
+            "correlationID": "abc-123",
+            "responseCode": 100,
+            "responseMessage": "Success",
+            "data": {"result": "true"},
+        }
+        api_mock.return_value.update_training_stage.return_value = response_mock
+        log_msg = (
+            f"Called update_training_stage with course_id={course_id}, "
+            f"national_id={national_id}, stage_result={stage_result}. "
+            f"Response: {response_mock}"
         )
+
+        with self.assertLogs("eox_nelp.signals.tasks", level="INFO") as logs:
+            update_mt_training_stage(
+                course_id=course_id,
+                national_id=national_id,
+                stage_result=stage_result,
+            )
 
         api_mock.assert_called_once()
         api_mock.return_value.update_training_stage.assert_called_once_with(
@@ -515,6 +529,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             national_id=national_id,
             stage_result=stage_result,
         )
+        self.assertEqual(logs.output, [f"INFO:eox_nelp.signals.tasks:{log_msg}"])
 
 
 @ddt

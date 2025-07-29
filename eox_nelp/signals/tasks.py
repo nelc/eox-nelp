@@ -197,10 +197,18 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         base_url=settings.MINISTER_OF_TOURISM_API_URL,
     )
 
-    api_client.update_training_stage(
+    response = api_client.update_training_stage(
         course_id=course_id,
         national_id=national_id,
         stage_result=stage_result,
+    )
+
+    logger.info(
+        "Called update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
+        course_id,
+        national_id,
+        stage_result,
+        response,
     )
 
 
