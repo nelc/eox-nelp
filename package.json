@@ -15,7 +15,7 @@
   "license": "ISC",
   "homepage": "https://bitbucket.org/edunext/eox-nelp#readme",
   "dependencies": {
-    "@edunext/frontend-essentials": "4.4.0",
+    "@edunext/frontend-essentials": "^4.7.0",
     "@edx/brand": "github:nelc/brand-openedx#open-release/redwood.nelp",
     "@edx/frontend-platform": "npm:@edunext/frontend-platform@^7.1.2-alpha-nelc.1",
     "@openedx/paragon": "23.0.0-alpha.1",
