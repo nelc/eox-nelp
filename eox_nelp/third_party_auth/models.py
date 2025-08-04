@@ -314,6 +314,7 @@ class SAMLBulkTemplateConfiguration(models.Model):
         """
         defaults = {
             "enabled": True,
+            "changed_by": self.changed_by,
             "entity_id": self.generate_configuration_entity_id_for_site(site),
             "org_info_str": self.generate_organization_info_for_site(site),
             "other_config_str": self.other_config_str,
@@ -334,6 +335,7 @@ class SAMLBulkTemplateConfiguration(models.Model):
         defaults = {
             "enabled": True,
             "name": self.name,
+            "changed_by": self.changed_by,
             "icon_class": self.icon_class,
             "icon_image": self.icon_image,
             "secondary": self.secondary,

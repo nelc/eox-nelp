@@ -166,6 +166,7 @@ class TestSAMLBulkTemplateConfiguration(TestCase):
             slug=slug,
             defaults={
                 "enabled": True,
+                "changed_by": None,
                 "entity_id": "https://saml.bc.futurex.sa",
                 "org_info_str": ANY,
                 "other_config_str": '{"key": "value"}',
