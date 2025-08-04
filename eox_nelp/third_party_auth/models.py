@@ -51,6 +51,15 @@ class SAMLBulkTemplateConfiguration(models.Model):
     )
     changed_date = models.DateTimeField(auto_now=True)
     sites = models.ManyToManyField(Site, related_name="saml_bulk_templates")
+    slug_suffix = models.CharField(
+        max_length=50,
+        default="lms-sso",
+        help_text=(
+            "Suffix appended to the generated slug after removing the TLD. "
+            "For example, with domain 'example.org' and suffix 'custom-idp', "
+            "the slug becomes 'example-custom-idp'."
+        ),
+    )
 
     # Common Provider fields
     icon_class = models.CharField(max_length=100, blank=True)
@@ -256,7 +265,7 @@ class SAMLBulkTemplateConfiguration(models.Model):
 
         slug = '-'.join(base_parts)
 
-        return f"{slug}-lms-sso"
+        return f"{slug}-{self.slug_suffix}"
 
     def generate_configuration_entity_id_for_site(self, site):
         """
