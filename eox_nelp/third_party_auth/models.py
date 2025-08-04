@@ -60,6 +60,13 @@ class SAMLBulkTemplateConfiguration(models.Model):
             "the slug becomes 'example-custom-idp'."
         ),
     )
+    use_default_saml_configuration_slug = models.BooleanField(
+        default=True,
+        help_text=(
+            "If checked, the slug for each site will be the default value defined in the model. "
+            "If unchecked, a dynamic slug will be generated from the site domain and the `slug_suffix`."
+        ),
+    )
 
     # Common Provider fields
     icon_class = models.CharField(max_length=100, blank=True)
@@ -312,6 +319,9 @@ class SAMLBulkTemplateConfiguration(models.Model):
         """
         Create or update the SAMLConfiguration for a specific site.
         """
+        if self.use_default_saml_configuration_slug:
+            slug = "default"
+
         defaults = {
             "enabled": True,
             "changed_by": self.changed_by,

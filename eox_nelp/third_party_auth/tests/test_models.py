@@ -156,7 +156,7 @@ class TestSAMLBulkTemplateConfiguration(TestCase):
             other_config_str='{"key": "value"}',
         )
         site = Site(domain="bc.futurex.sa", name="Futurex Site")
-        slug = "bc-futurex-lms-sso"
+        slug = "default"
 
         result = template._create_or_update_saml_configuration(site, slug)  # pylint: disable=protected-access
 
