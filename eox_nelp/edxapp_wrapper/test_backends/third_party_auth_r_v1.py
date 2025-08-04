@@ -9,3 +9,12 @@ def get_registry():
         Mock class.
     """
     return Mock()
+
+
+def get_models():
+    """Return models module for third-party authentication.
+
+    Returns:
+        Mock class.
+    """
+    return Mock()

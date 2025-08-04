@@ -14,6 +14,7 @@ from eox_nelp.notifications.admin import *  # noqa: F401
 from eox_nelp.payment_notifications.admin import *  # noqa: F401
 from eox_nelp.pearson_vue_engine.admin import *  # noqa: F401
 from eox_nelp.settings.common import CUSTOM_REG_FORM_APP, EOX_SUPPORT_APP
+from eox_nelp.third_party_auth.admin import *  # noqa: F401
 
 if (
     find_spec("eox_support")
