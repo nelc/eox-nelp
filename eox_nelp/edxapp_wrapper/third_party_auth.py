@@ -15,4 +15,3 @@ from django.conf import settings
 backend = import_module(settings.EOX_NELP_THIRD_PARTY_AUTH_BACKEND)
 
 Registry = backend.get_registry()
-models = backend.get_models()
