@@ -24,6 +24,7 @@ DEFAULT_FUTUREX_NOTIFY_SUBSECTION_SUBJECT_MESSAGE = (
 )
 #  APP Labels
 COURSE_CREATOR_APP = 'cms.djangoapps.course_creators'
+CONTENT_SEARCH_APP = 'openedx.core.djangoapps.content.search'
 JSON_API_REST_FRAMEWORK = 'rest_framework_json_api'
 EOX_AUDIT_MODEL_APP = 'eox_audit_model.apps.EoxAuditModelConfig'
 EOX_SUPPORT_APP = 'eox_support.apps.EoxSupportConfig'
@@ -68,6 +69,8 @@ def plugin_settings(settings):
 
     if COURSE_CREATOR_APP not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(COURSE_CREATOR_APP)
+    if find_spec(CONTENT_SEARCH_APP) and CONTENT_SEARCH_APP not in settings.INSTALLED_APPS:
+        settings.INSTALLED_APPS.append(CONTENT_SEARCH_APP)
     if find_spec(JSON_API_REST_FRAMEWORK) and JSON_API_REST_FRAMEWORK not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(JSON_API_REST_FRAMEWORK)
     if find_spec('eox_audit_model') and EOX_AUDIT_MODEL_APP not in settings.INSTALLED_APPS:
