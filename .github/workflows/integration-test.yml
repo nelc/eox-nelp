@@ -12,9 +12,12 @@ jobs:
     steps:
       - name: Run Redwood Integration Tests
         uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        env:
+          DOCKER_IMAGE_OPENEDX: "docker.io/overhangio/openedx:18.2.2"
         with:
           tutor_version: ${{ matrix.tutor_version }}
           app_name: 'eox-nelp'
+          inline_tutor_plugins_folder: 'eox_nelp/tutor_plugins'
           openedx_private_requirements: "git@github.com:nelc/nelp-custom-registration-fields.git@main git@github.com:nelc/external-api-clients.git@v1.0.0 git@github.com:nelc/sqs-event-publisher.git@v0.1.0"
           openedx_imports_test_file_path: 'eox_nelp/edxapp_wrapper/tests/integration/test_backends.py'
           openedx_extra_pip_requirements: "edx-event-routing-backends==v9.3.2"
@@ -29,9 +32,12 @@ jobs:
     steps:
       - name: Run Teak Integration Tests
         uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        env:
+          DOCKER_IMAGE_OPENEDX: "docker.io/overhangio/openedx:20.0.0"
         with:
           tutor_version: ${{ matrix.tutor_version }}
           app_name: 'eox-nelp'
+          inline_tutor_plugins_folder: 'eox_nelp/tutor_plugins'
           openedx_private_requirements: "git@github.com:nelc/nelp-custom-registration-fields.git@main git@github.com:nelc/external-api-clients.git@v1.0.0 git@github.com:nelc/sqs-event-publisher.git@v0.1.0"
           openedx_imports_test_file_path: 'eox_nelp/edxapp_wrapper/tests/integration/test_backends.py'
           openedx_extra_pip_requirements: "edx-event-routing-backends==v9.3.2"
