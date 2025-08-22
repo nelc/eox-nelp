@@ -8,6 +8,7 @@ Classes:
     MtCourseCompletionHandlerTestCase: Test mt_course_completion_handler receiver.
     MtCoursePassesHandlerTestCase: Test mt_course_passed_handler receiver.
     MtCourseFailedHandlerTestCase: Test mt_course_failed_handler receiver.
+    ListenForCourseDeleteTestCase: Test listen_for_course_delete receiver.
 """
 import unittest
 
@@ -23,6 +24,7 @@ from opaque_keys.edx.keys import CourseKey
 from openedx_events.data import EventsMetadata
 from openedx_events.learning.data import CertificateData, CourseData, UserData, UserPersonalData
 
+from eox_nelp.edxapp_wrapper.contentstore import CourseAboutSearchIndexer
 from eox_nelp.edxapp_wrapper.test_backends import create_test_model
 from eox_nelp.signals import receivers
 from eox_nelp.signals.receivers import (
@@ -34,6 +36,7 @@ from eox_nelp.signals.receivers import (
     emit_subsection_attempt_event,
     enrollment_publisher,
     include_tracker_context,
+    listen_for_course_delete,
     mt_course_completion_handler,
     mt_course_failed_handler,
     mt_course_passed_handler,
@@ -896,3 +899,24 @@ class ReceiveCoursePublishTestCase(unittest.TestCase):
             args=[user.id, course_id],
             countdown=5,
         )
+
+
+class ListenForCourseDeleteTestCase(unittest.TestCase):
+    """Test class for listen_for_course_delete function."""
+
+    def tearDown(self):
+        """Restore mocks' state"""
+        CourseAboutSearchIndexer.reset_mock()
+
+    def test_remove_deleted_items_called(self):
+        """Test that CourseAboutSearchIndexer.remove_deleted_items is called
+        with the correct course_key when a course_deleted signal is received.
+
+        Expected behavior:
+            - remove_deleted_items is called once with the provided course_key.
+        """
+        course_key = CourseKey.from_string("course-v1:test+CX101+2025_T1")
+
+        listen_for_course_delete(sender=None, course_key=course_key)
+
+        CourseAboutSearchIndexer.remove_deleted_items.assert_called_once_with(course_key)

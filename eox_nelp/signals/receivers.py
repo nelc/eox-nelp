@@ -19,12 +19,15 @@ import logging
 from crum import get_current_user
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.dispatch import receiver
 from eox_core.edxapp_wrapper.grades import get_course_grade_factory
 from eox_core.edxapp_wrapper.users import get_user_signup_source
 from eox_tenant.tenant_wise.proxies import TenantSiteConfigProxy
 from eventtracking import tracker
 from openedx_events.learning.data import CertificateData, CourseData, UserData, UserPersonalData
 
+from eox_nelp.edxapp_wrapper.contentstore import CourseAboutSearchIndexer
+from eox_nelp.edxapp_wrapper.modulestore import SignalHandler
 from eox_nelp.external_certificates.tasks import create_external_certificate
 from eox_nelp.notifications.tasks import create_course_notifications as create_course_notifications_task
 from eox_nelp.payment_notifications.models import PaymentNotification
@@ -475,3 +478,27 @@ def receive_course_created(course, **kwargs):  # pylint: disable=unused-argument
         args=[user.id, str(course.course_key)],
         countdown=5,
     )
+
+
+# The signal is defined inside a class, so the receiver must be connected this way instead of plugins standard.
+@receiver(SignalHandler.course_deleted)
+def listen_for_course_delete(sender, course_key, **kwargs):  # pylint: disable=unused-argument
+    """
+    This function is a verbatim copy of the implementation defined in:
+    https://github.com/nelc/edx-platform/blob/open-release/redwood.nelp/cms/djangoapps/contentstore/signals/handlers.py#L167
+
+    In the Teak release, importing the `handlers` module directly
+    (e.g., `from cms.djangoapps.contentstore.signals import handlers`)
+    introduces conflicts because that module transitively imports CMS-only
+    models that are not valid in the LMS context.
+
+    To avoid these conflicts, the handler implementation has been duplicated
+    here. The only dependency required by this function is
+    `CourseAboutSearchIndexer`, which can be safely imported without causing
+    LMS issues.
+
+    While this results in a small amount of duplicated code, it ensures that
+    the course deletion signal is properly handled without introducing
+    cross-app dependencies that would break the LMS environment.
+    """
+    CourseAboutSearchIndexer.remove_deleted_items(course_key)

@@ -27,3 +27,12 @@ def get_module_store_enum():
         Mock class.
     """
     return Mock()
+
+
+def get_signal_handler():
+    """Return test class.
+
+    Returns:
+        Mock class.
+    """
+    return Mock()
