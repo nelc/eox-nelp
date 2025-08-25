@@ -18,7 +18,7 @@ jobs:
       - name: Run Redwood Integration Tests
         uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
         env:
-          DOCKER_IMAGE_OPENEDX: "docker.io/ednxops/distro-edunext-edxapp:nelp-v18.1106.2-fx-theme-pr89"
+          DOCKER_IMAGE_OPENEDX: "docker.io/overhangio/openedx:18.0.0"
         with:
           tutor_version: ${{ matrix.tutor_version }}
           app_name: 'eox-nelp'
