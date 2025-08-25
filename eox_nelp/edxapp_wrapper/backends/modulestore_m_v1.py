@@ -4,7 +4,7 @@ This file contains all the necessary dependencies from
 https://github.com/eduNEXT/edunext-platform/blob/master/common/lib/xmodule/xmodule/modulestore
 """
 from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.django import modulestore  # pylint: disable=import-error
+from xmodule.modulestore.django import SignalHandler, modulestore  # pylint: disable=import-error
 from xmodule.modulestore.exceptions import ItemNotFoundError
 
 
@@ -36,3 +36,13 @@ def get_module_store_enum():
         ModuleStoreEnum class.
     """
     return ModuleStoreEnum
+
+
+def get_signal_handler():
+    """Allow to get SignalHandler class from
+    https://github.com/nelc/edx-platform/blob/open-release/redwood.nelp/xmodule/modulestore/django.py#L151
+
+    Returns:
+        SignalHandler class.
+    """
+    return SignalHandler
