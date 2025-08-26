@@ -14,7 +14,7 @@ class SettingsClass:
     """ dummy settings class """
 
 
-def plugin_settings(settings):  # pylint: disable=function-redefined
+def test_plugin_settings(settings):
     """
     Defines eox-nelp settings when app is used as a plugin to edx-platform.
     See: https://github.com/edx/edx-platform/blob/master/openedx/core/djangoapps/plugins/README.rst
@@ -75,7 +75,7 @@ def plugin_settings(settings):  # pylint: disable=function-redefined
 PLATFORM_NAME = "Testing environment"
 
 SETTINGS = SettingsClass()
-plugin_settings(SETTINGS)
+test_plugin_settings(SETTINGS)
 vars().update(SETTINGS.__dict__)
 
 
