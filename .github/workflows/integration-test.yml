@@ -16,7 +16,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Run Redwood Integration Tests
-        uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        uses: eduNEXT/integration-test-in-tutor@and/tmp_eox_nelp_branch
         env:
           DOCKER_IMAGE_OPENEDX: "docker.io/overhangio/openedx:18.0.0"
         with:
@@ -41,7 +41,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Run Teak Integration Tests
-        uses: eduNEXT/integration-test-in-tutor@and/support_private_requirements
+        uses: eduNEXT/integration-test-in-tutor@and/tmp_eox_nelp_branch
         env:
           DOCKER_IMAGE_OPENEDX: "docker.io/ednxops/distro-edunext-edxapp:nelp-v20.0.0"
         with:
