@@ -29,7 +29,7 @@ from rest_framework_json_api.filters import OrderingFilter, QueryParameterValida
 from rest_framework_json_api.metadata import JSONAPIMetadata
 from rest_framework_json_api.pagination import JsonApiPageNumberPagination
 from rest_framework_json_api.parsers import JSONParser
-from rest_framework_json_api.renderers import BrowsableAPIRenderer, JSONRenderer
+from rest_framework_json_api.renderers import JSONRenderer
 from rest_framework_json_api.schemas.openapi import AutoSchema
 from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
 
@@ -81,7 +81,7 @@ class BaseJsonAPIView(ModelViewSet):
         FormParser,
         MultiPartParser,
     ]
-    renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, 'DEBUG', None) else [JSONRenderer]
+    renderer_classes = [JSONRenderer] if getattr(settings, 'DEBUG', None) else [JSONRenderer]
 
     metadata_class = JSONAPIMetadata
     schema_class = AutoSchema
