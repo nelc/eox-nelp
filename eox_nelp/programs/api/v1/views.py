@@ -119,7 +119,7 @@ class ProgramsMetadataView(APIView):
                 )
 
             # Update program metadata
-            success = self._update_program_metadata(course_id, serializer.validated_data, request)
+            success = self._update_program_metadata(course_id, serializer.validated_data, request.user)
 
             if not success:
                 return Response(
@@ -142,10 +142,6 @@ class ProgramsMetadataView(APIView):
         """
         Retrieve program metadata for a course.
 
-        This is a mock implementation. In a real scenario, this would:
-        1. Query the database for course information
-        2. Fetch program details from external services
-        3. Aggregate metadata from various sources
 
         Args:
             course_id: Course identifier
@@ -160,7 +156,7 @@ class ProgramsMetadataView(APIView):
         program_metadata = course_metadata.get("other_course_settings", {}).get("value", {}).get("program_metadata_v1", {})
         return program_metadata
 
-    def _update_program_metadata(self, course_id, program_data, request):
+    def _update_program_metadata(self, course_id, program_data, user):
         """
         Update program metadata for a course.
 
@@ -172,22 +168,16 @@ class ProgramsMetadataView(APIView):
         Returns:
             bool: True if update was successful, False otherwise
         """
-        try:
-            # Get course key and course block
-            course_key = CourseKey.from_string(course_id)
-            course_block = modulestore().get_course(course_key, depth=0)
-            if not course_block:
-                return False
-
-            # Get current course metadata
-            course_metadata = CourseMetadata.fetch(course_block)
-            other_course_settings = course_metadata.get("other_course_settings", {})
-            other_course_settings_value = other_course_settings.get("value", {})
-            other_course_settings_value["program_metadata_v1"] = program_data
-            other_course_settings["value"] = other_course_settings_value
-            update_course_advanced_settings(course_block, {"other_course_settings": other_course_settings}, request.user)
-            return True
-
-        except Exception as e:
-            print(f"Error updating program metadata: {str(e)}")
-            return False
+        course_key = CourseKey.from_string(course_id)
+        course_block = modulestore().get_course(course_key, depth=0)
+        course_metadata = CourseMetadata.fetch(course_block)
+        other_course_settings = course_metadata.get("other_course_settings", {})
+        other_course_settings_value = other_course_settings.get("value", {})
+        other_course_settings_value["program_metadata_v1"] = program_data
+        other_course_settings["value"] = other_course_settings_value
+        updated_data = update_course_advanced_settings(
+            course_block,
+            {"other_course_settings": other_course_settings},
+            user,
+        )
+        return updated_data["other_course_settings"]["value"]["program_metadata_v1"]
