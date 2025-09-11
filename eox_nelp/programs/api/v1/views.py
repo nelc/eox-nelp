@@ -6,13 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.serializers import ProgramsMetadataSerializer
-from cms.djangoapps.models.settings.course_metadata import CourseMetadata
-from opaque_keys.edx.keys import CourseKey
-from common.djangoapps.util.json_request import JsonResponse
-from rest_framework.parsers import JSONParser
-from cms.djangoapps.contentstore.views.course import update_course_advanced_settings
+from eox_nelp.programs.api.v1.utils import get_program_metadata, update_program_metadata
 from django.conf import settings
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 
@@ -72,7 +67,7 @@ class ProgramsMetadataView(APIView):
 
             # Mock data - in a real implementation, this would fetch from database
             # or external service based on the course_id
-            program_metadata = self._get_program_metadata(course_id)
+            program_metadata = get_program_metadata(course_id)
             # return JsonResponse(program_metadata, status=status.HTTP_200_OK)
             if not program_metadata:
                 return Response(
@@ -118,8 +113,7 @@ class ProgramsMetadataView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update program metadata
-            success = self._update_program_metadata(course_id, serializer.validated_data, request.user)
+            success = update_program_metadata(course_id, serializer.validated_data, request.user)
 
             if not success:
                 return Response(
@@ -137,47 +131,3 @@ class ProgramsMetadataView(APIView):
                 {'error': 'Internal server error', 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _get_program_metadata(self, course_id):
-        """
-        Retrieve program metadata for a course.
-
-
-        Args:
-            course_id: Course identifier
-
-        Returns:
-            dict: Program metadata or None if not found
-        """
-        # Mock data - replace with actual database/service calls
-        course_key = CourseKey.from_string(course_id)
-        course_block = modulestore().get_course(course_key, depth=0)
-        course_metadata = CourseMetadata.fetch(course_block)
-        program_metadata = course_metadata.get("other_course_settings", {}).get("value", {}).get("program_metadata_v1", {})
-        return program_metadata
-
-    def _update_program_metadata(self, course_id, program_data, user):
-        """
-        Update program metadata for a course.
-
-        Args:
-            course_id: Course identifier
-            program_data: Dictionary containing program metadata to update
-            user: User object for the update operation
-
-        Returns:
-            bool: True if update was successful, False otherwise
-        """
-        course_key = CourseKey.from_string(course_id)
-        course_block = modulestore().get_course(course_key, depth=0)
-        course_metadata = CourseMetadata.fetch(course_block)
-        other_course_settings = course_metadata.get("other_course_settings", {})
-        other_course_settings_value = other_course_settings.get("value", {})
-        other_course_settings_value["program_metadata_v1"] = program_data
-        other_course_settings["value"] = other_course_settings_value
-        updated_data = update_course_advanced_settings(
-            course_block,
-            {"other_course_settings": other_course_settings},
-            user,
-        )
-        return updated_data["other_course_settings"]["value"]["program_metadata_v1"]
