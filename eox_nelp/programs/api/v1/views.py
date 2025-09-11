@@ -10,6 +10,22 @@ from eox_nelp.programs.api.v1.serializers import ProgramsMetadataSerializer
 from eox_nelp.programs.api.v1.utils import get_program_metadata, update_program_metadata
 from django.conf import settings
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
+from functools import wraps
+
+
+def require_feature_enabled(feature_name):
+    """Decorator to check if a feature is enabled before executing the method."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, request, *args, **kwargs):
+            if not settings.FEATURES.get(feature_name):
+                return Response(
+                    {"error": f"System Settings doesn't have enabled FEATURE {feature_name}"},
+                    status=status.HTTP_501_NOT_IMPLEMENTED,
+                )
+            return func(self, request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class ProgramsMetadataView(APIView):
@@ -46,64 +62,47 @@ class ProgramsMetadataView(APIView):
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated]
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, 'DEBUG', None) else [JSONRenderer]
+
+    @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
     def get(self, request, course_key_string):
         """
         Retrieve program metadata for the specified course ID.
 
         Args:
             request: HTTP request object
-            course_id: Course identifier
+            course_key_string: Course identifier
 
         Returns:
             Response with program metadata or error
         """
-        try:
-            program_metadata = get_program_metadata(course_key_string)
+        program_metadata = get_program_metadata(course_key_string)
 
-            if not program_metadata:
-                return Response(
-                    {'error': 'Program metadata not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            serializer = ProgramsMetadataSerializer(program_metadata)
-
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        except Exception as e:
+        if not program_metadata:
             return Response(
-                {'error': 'Internal server error', 'detail': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': 'Program metadata not found'},
+                status=status.HTTP_404_NOT_FOUND
             )
 
+        return Response(ProgramsMetadataSerializer(program_metadata).data, status=status.HTTP_200_OK)
+
+    @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
     def post(self, request, course_key_string):
         """
         Create or update program metadata for the specified course ID.
 
         Args:
             request: HTTP request object containing program metadata
-            course_id: Course identifier
+            course_key_string: Course identifier
 
         Returns:
             Response with updated program metadata or error
         """
-        try:
-            serializer = ProgramsMetadataSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(
-                    {'error': 'Invalid data', 'details': serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        serializer = ProgramsMetadataSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-            update_program_metadata(course_key_string, serializer.validated_data, request.user)
+        update_program_metadata(course_key_string, serializer.validated_data, request.user)
 
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED
-            )
-
-        except Exception as e:
-            return Response(
-                {'error': 'Internal server error', 'detail': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED
+        )
