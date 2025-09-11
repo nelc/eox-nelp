@@ -95,16 +95,10 @@ class ProgramsMetadataView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            program_metadata = update_program_metadata(course_key_string, serializer.validated_data, request.user)
-
-            if not program_metadata:
-                return Response(
-                    {'error': 'Failed to update program metadata'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            update_program_metadata(course_key_string, serializer.validated_data, request.user)
 
             return Response(
-                ProgramsMetadataSerializer(program_metadata).data,
+                serializer.data,
                 status=status.HTTP_201_CREATED
             )
 
