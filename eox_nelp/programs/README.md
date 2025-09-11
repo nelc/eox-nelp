@@ -4,7 +4,7 @@ This module provides API endpoints for managing program metadata in the eox-nelp
 
 ## API Endpoints
 
-### GET eox-nelp/api/programs/v1/metadata/{course_id}/
+### GET eox-nelp/api/programs/v1/metadata/{course_key_string}
 
 Retrieves metadata for a specific course program.
 
@@ -14,7 +14,7 @@ Retrieves metadata for a specific course program.
 
 
 #### Parameters
-- `course_id` (path parameter): Course identifier (e.g., `course-v1:edX+DemoX+Demo_Course`)
+- `course_key_string` (path parameter): Course identifier (e.g., `course-v1:edX+DemoX+Demo_Course`)
 
 #### Response Format
 ```json
@@ -39,16 +39,16 @@ Retrieves metadata for a specific course program.
 **With JWT Token:**
 ```bash
 curl -H "Authorization: Bearer <jwt_token>" \
-     https://your-domain.com/eox-nelp/api/programs/v1/metadata/course-v1:edX+DemoX+Demo_Course/
+     https://your-domain.com/eox-nelp/api/programs/v1/metadata/course-v1:edX+DemoX+Demo_Course
 ```
 
 **With Session Authentication:**
 ```bash
 curl -H "Cookie: sessionid=<session_id>" \
-     https://your-domain.com/eox-nelp/api/programs/v1/metadata/course-v1:edX+DemoX+Demo_Course/
+     https://your-domain.com/eox-nelp/api/programs/v1/metadata/course-v1:edX+DemoX+Demo_Course
 ```
 
-### POST eox-nelp/api/programs/v1/metadata/{course_id}/
+### POST eox-nelp/api/programs/v1/metadata/{course_key_string}
 
 Creates or updates program metadata for a specific course.
 
