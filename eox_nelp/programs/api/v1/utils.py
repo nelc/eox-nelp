@@ -21,6 +21,7 @@ def get_program_metadata(course_id):
     program_metadata = course_metadata.get("other_course_settings", {}).get("value", {}).get("program_metadata_v1", {})
     return program_metadata
 
+
 def update_program_metadata(course_id, program_data, user):
     """
     Update program metadata for a course.

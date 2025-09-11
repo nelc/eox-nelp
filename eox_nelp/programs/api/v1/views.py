@@ -21,8 +21,8 @@ class ProgramsMetadataView(APIView):
         - Create or update program metadata for a course
 
     **Example Requests**
-        GET /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213/
-        POST /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213/
+        GET /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213
+        POST /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213
 
     **Authentication**
         Requires JWT token or session authentication
@@ -46,7 +46,7 @@ class ProgramsMetadataView(APIView):
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated]
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, 'DEBUG', None) else [JSONRenderer]
-    def get(self, request, course_id):
+    def get(self, request, course_key_string):
         """
         Retrieve program metadata for the specified course ID.
 
@@ -58,24 +58,14 @@ class ProgramsMetadataView(APIView):
             Response with program metadata or error
         """
         try:
-            # Validate course_id format (basic validation)
-            if not course_id or len(course_id.strip()) == 0:
-                return Response(
-                    {'error': 'Invalid course ID'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            program_metadata = get_program_metadata(course_key_string)
 
-            # Mock data - in a real implementation, this would fetch from database
-            # or external service based on the course_id
-            program_metadata = get_program_metadata(course_id)
-            # return JsonResponse(program_metadata, status=status.HTTP_200_OK)
             if not program_metadata:
                 return Response(
                     {'error': 'Program metadata not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Serialize the data
             serializer = ProgramsMetadataSerializer(program_metadata)
 
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -86,7 +76,7 @@ class ProgramsMetadataView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def post(self, request, course_id):
+    def post(self, request, course_key_string):
         """
         Create or update program metadata for the specified course ID.
 
@@ -98,14 +88,6 @@ class ProgramsMetadataView(APIView):
             Response with updated program metadata or error
         """
         try:
-            # Validate course_id format
-            if not course_id or len(course_id.strip()) == 0:
-                return Response(
-                    {'error': 'Invalid course ID'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Parse and validate request data
             serializer = ProgramsMetadataSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
@@ -113,7 +95,7 @@ class ProgramsMetadataView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            program_metadata = update_program_metadata(course_id, serializer.validated_data, request.user)
+            program_metadata = update_program_metadata(course_key_string, serializer.validated_data, request.user)
 
             if not program_metadata:
                 return Response(
@@ -122,7 +104,7 @@ class ProgramsMetadataView(APIView):
                 )
 
             return Response(
-                program_metadata,
+                ProgramsMetadataSerializer(program_metadata).data,
                 status=status.HTTP_201_CREATED
             )
 
