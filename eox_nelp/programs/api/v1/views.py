@@ -21,8 +21,8 @@ class ProgramsMetadataView(APIView):
         - Create or update program metadata for a course
 
     **Example Requests**
-        GET /api/v1/programs/metadata/{course_id}/
-        POST /api/v1/programs/metadata/{course_id}/
+        GET /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213/
+        POST /eox-nelp/api/programs/v1/metadata/course-v1:edx+cd101+23213/
 
     **Authentication**
         Requires JWT token or session authentication
@@ -113,16 +113,16 @@ class ProgramsMetadataView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            success = update_program_metadata(course_id, serializer.validated_data, request.user)
+            program_metadata = update_program_metadata(course_id, serializer.validated_data, request.user)
 
-            if not success:
+            if not program_metadata:
                 return Response(
                     {'error': 'Failed to update program metadata'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
             return Response(
-                {'message': 'Program metadata updated successfully', 'data': serializer.data},
+                program_metadata,
                 status=status.HTTP_201_CREATED
             )
 
