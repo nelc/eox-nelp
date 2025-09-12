@@ -9,8 +9,6 @@ from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from eox_nelp.programs.api.v1.serializers import ProgramsMetadataSerializer
-
 User = get_user_model()
 
 
