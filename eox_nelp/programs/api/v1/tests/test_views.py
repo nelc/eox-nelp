@@ -125,13 +125,14 @@ class ProgramsMetadataViewTestCase(TestCase):
             }
             self.assertEqual(response.data, expected_data)
             # trainer_type is read-only, so it's not included in validated_data
-            expected_validated_data = {
+            expected_data = {
+                "trainer_type": 10,
                 "Type_of_Activity": 1,
                 "Mandatory": "01",
                 "Program_ABROVE": "01",
                 "Program_code": "TEST001",
             }
-            mock_update.assert_called_once_with(self.course_key, expected_validated_data, self.user)
+            mock_update.assert_called_once_with(self.course_key, expected_data, self.user)
 
     def test_post_program_metadata_invalid_data(self):
         """
