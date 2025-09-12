@@ -1,6 +1,7 @@
 """
 Test views file for programs API v1.
 """
+
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -20,7 +21,8 @@ class ProgramsMetadataViewTestCase(TestCase):
         """Set up test data."""
         self.client = APIClient()
         self.user = User.objects.create_user(
-            username="testuser", password="testpass",
+            username="testuser",
+            password="testpass",
         )
         self.client.force_authenticate(self.user)
         self.course_key = "course-v1:edX+DemoX+Demo_Course"
@@ -41,7 +43,7 @@ class ProgramsMetadataViewTestCase(TestCase):
             "Program_code": "TEST001",
         }
 
-        with patch('eox_nelp.programs.api.v1.views.get_program_metadata') as mock_get:
+        with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
             mock_get.return_value = mock_metadata
 
             response = self.client.get(self.url)
@@ -57,7 +59,7 @@ class ProgramsMetadataViewTestCase(TestCase):
             - Status code 404.
             - Return error message.
         """
-        with patch('eox_nelp.programs.api.v1.views.get_program_metadata') as mock_get:
+        with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
             mock_get.return_value = None
 
             response = self.client.get(self.url)
@@ -79,7 +81,7 @@ class ProgramsMetadataViewTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Authentication credentials were not provided", str(response.data))
 
-    @override_settings(FEATURES={'ENABLE_OTHER_COURSE_SETTINGS': False})
+    @override_settings(FEATURES={"ENABLE_OTHER_COURSE_SETTINGS": False})
     def test_get_program_metadata_feature_disabled(self):
         """
         Test retrieval when feature is disabled.
@@ -107,7 +109,7 @@ class ProgramsMetadataViewTestCase(TestCase):
             "Program_code": "TEST001",
         }
 
-        with patch('eox_nelp.programs.api.v1.views.update_program_metadata') as mock_update:
+        with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
             mock_update.return_value = True
 
             response = self.client.post(self.url, metadata_data)
@@ -129,9 +131,7 @@ class ProgramsMetadataViewTestCase(TestCase):
                 "Program_ABROVE": "01",
                 "Program_code": "TEST001",
             }
-            mock_update.assert_called_once_with(
-                self.course_key, expected_validated_data, self.user
-            )
+            mock_update.assert_called_once_with(self.course_key, expected_validated_data, self.user)
 
     def test_post_program_metadata_invalid_data(self):
         """
@@ -174,7 +174,7 @@ class ProgramsMetadataViewTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Authentication credentials were not provided", str(response.data))
 
-    @override_settings(FEATURES={'ENABLE_OTHER_COURSE_SETTINGS': False})
+    @override_settings(FEATURES={"ENABLE_OTHER_COURSE_SETTINGS": False})
     def test_post_program_metadata_feature_disabled(self):
         """
         Test creation when feature is disabled.
@@ -228,7 +228,7 @@ class ProgramsMetadataViewTestCase(TestCase):
             "Program_code": "TEST001",
         }
 
-        with patch('eox_nelp.programs.api.v1.views.get_program_metadata') as mock_get:
+        with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
             mock_get.return_value = invalid_metadata
 
             response = self.client.get(self.url)
@@ -251,16 +251,13 @@ class ProgramsMetadataViewTestCase(TestCase):
             "Program_code": "TEST001",
         }
 
-        with patch('eox_nelp.programs.api.v1.views.get_program_metadata') as mock_get:
+        with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
             mock_get.return_value = valid_metadata
 
             response = self.client.get(self.url)
 
             if response.status_code == status.HTTP_200_OK:
-                expected_fields = [
-                    "trainer_type", "Type_of_Activity", "Mandatory",
-                    "Program_ABROVE", "Program_code"
-                ]
+                expected_fields = ["trainer_type", "Type_of_Activity", "Mandatory", "Program_ABROVE", "Program_code"]
 
                 for field in expected_fields:
                     self.assertIn(field, response.data, f"Field '{field}' missing from response")
@@ -290,7 +287,7 @@ class ProgramsMetadataViewTestCase(TestCase):
                     "Program_code": "TEST001",
                 }
 
-                with patch('eox_nelp.programs.api.v1.views.update_program_metadata') as mock_update:
+                with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
                     mock_update.return_value = True
 
                     response = self.client.post(self.url, metadata_data)
@@ -326,7 +323,7 @@ class ProgramsMetadataViewTestCase(TestCase):
                     "Program_code": "TEST001",
                 }
 
-                with patch('eox_nelp.programs.api.v1.views.update_program_metadata') as mock_update:
+                with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
                     mock_update.return_value = True
 
                     response = self.client.post(self.url, metadata_data)
@@ -362,7 +359,7 @@ class ProgramsMetadataViewTestCase(TestCase):
                     "Program_code": value,
                 }
 
-                with patch('eox_nelp.programs.api.v1.views.update_program_metadata') as mock_update:
+                with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
                     mock_update.return_value = True
 
                     response = self.client.post(self.url, metadata_data)
