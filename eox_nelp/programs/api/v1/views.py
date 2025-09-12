@@ -1,17 +1,18 @@
 """Programs API v1 Views."""
 
+from functools import wraps
+
+from django.conf import settings
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from eox_nelp.programs.api.v1.serializers import ProgramsMetadataSerializer
 from eox_nelp.programs.api.v1.utils import get_program_metadata, update_program_metadata
-from django.conf import settings
-from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
-from functools import wraps
 
 
 def require_feature_enabled(feature_name):
@@ -68,7 +69,7 @@ class ProgramsMetadataView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, "DEBUG", None) else [JSONRenderer]
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
-    def get(self, request, course_key_string):
+    def get(self, request, course_key_string):  # pylint: disable=unused-argument
         """
         Retrieve program metadata for the specified course ID.
 
@@ -80,11 +81,13 @@ class ProgramsMetadataView(APIView):
             Response with program metadata or error
         """
         program_metadata = get_program_metadata(course_key_string)
-
         if not program_metadata:
             return Response({"error": "Program metadata not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(ProgramsMetadataSerializer(program_metadata).data, status=status.HTTP_200_OK)
+        serializer = ProgramsMetadataSerializer(data=program_metadata)
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
     def post(self, request, course_key_string):

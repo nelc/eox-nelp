@@ -1,7 +1,7 @@
 """Programs API v1 URLs."""
 
-from django.urls import re_path
 from django.conf import settings
+from django.urls import re_path
 
 from eox_nelp.programs.api.v1.views import ProgramsMetadataView
 

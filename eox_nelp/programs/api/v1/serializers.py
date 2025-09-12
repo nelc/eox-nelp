@@ -3,13 +3,14 @@
 from rest_framework import serializers
 
 
-class ProgramsMetadataSerializer(serializers.Serializer):
+class ProgramsMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for programs metadata.
 
     This serializer handles the metadata for a specific course program.
     """
-
+    # pylint: disable=invalid-name
+    # This is for use DRF logic of validation, but the fields or the API are very rare in shape.
     trainer_type = serializers.IntegerField(default=10, read_only=True)
     Type_of_Activity = serializers.IntegerField()
     Mandatory = serializers.CharField(max_length=2)
