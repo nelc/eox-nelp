@@ -103,7 +103,6 @@ class ProgramsMetadataView(APIView):
         """
         serializer = ProgramsMetadataSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        update_program_metadata(course_key_string, serializer.validated_data, request.user)
+        update_program_metadata(course_key_string, serializer.data, request.user)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
