@@ -1,4 +1,5 @@
 """Programs API v1 Views."""
+
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from rest_framework import status
@@ -15,6 +16,7 @@ from functools import wraps
 
 def require_feature_enabled(feature_name):
     """Decorator to check if a feature is enabled before executing the method."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(self, request, *args, **kwargs):
@@ -24,7 +26,9 @@ def require_feature_enabled(feature_name):
                     status=status.HTTP_501_NOT_IMPLEMENTED,
                 )
             return func(self, request, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -61,7 +65,7 @@ class ProgramsMetadataView(APIView):
 
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated]
-    renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, 'DEBUG', None) else [JSONRenderer]
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, "DEBUG", None) else [JSONRenderer]
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
     def get(self, request, course_key_string):
@@ -78,10 +82,7 @@ class ProgramsMetadataView(APIView):
         program_metadata = get_program_metadata(course_key_string)
 
         if not program_metadata:
-            return Response(
-                {'error': 'Program metadata not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Program metadata not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(ProgramsMetadataSerializer(program_metadata).data, status=status.HTTP_200_OK)
 
@@ -102,7 +103,4 @@ class ProgramsMetadataView(APIView):
 
         update_program_metadata(course_key_string, serializer.validated_data, request.user)
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_201_CREATED
-        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

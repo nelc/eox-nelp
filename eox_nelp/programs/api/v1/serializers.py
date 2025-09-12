@@ -1,4 +1,5 @@
 """Programs API v1 Serializers."""
+
 from rest_framework import serializers
 
 
@@ -8,6 +9,7 @@ class ProgramsMetadataSerializer(serializers.Serializer):
 
     This serializer handles the metadata for a specific course program.
     """
+
     trainer_type = serializers.IntegerField(default=10, read_only=True)
     Type_of_Activity = serializers.IntegerField()
     Mandatory = serializers.CharField(max_length=2)
@@ -18,18 +20,14 @@ class ProgramsMetadataSerializer(serializers.Serializer):
         """Validate Mandatory field."""
         valid_values = ["01", "00"]
         if value not in valid_values:
-            raise serializers.ValidationError(
-                f"Mandatory must be one of: {', '.join(valid_values)}"
-            )
+            raise serializers.ValidationError(f"Mandatory must be one of: {', '.join(valid_values)}")
         return value
 
     def validate_Program_ABROVE(self, value):
         """Validate Program_ABROVE field."""
         valid_values = ["01", "00"]
         if value not in valid_values:
-            raise serializers.ValidationError(
-                f"Program_ABROVE must be one of: {', '.join(valid_values)}"
-            )
+            raise serializers.ValidationError(f"Program_ABROVE must be one of: {', '.join(valid_values)}")
         return value
 
     def validate_Program_code(self, value):

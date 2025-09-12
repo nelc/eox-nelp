@@ -2,8 +2,6 @@ from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from opaque_keys.edx.keys import CourseKey
 
 
-
-
 def get_program_metadata(course_key_string):
     """
     Retrieve program metadata for a course.
