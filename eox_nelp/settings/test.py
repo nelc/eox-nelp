@@ -90,6 +90,10 @@ ALLOWED_HOSTS = ['*']
 ENV_ROOT = '.'
 ROOT_URLCONF = 'eox_nelp.urls'
 
+FEATURES = {
+    'ENABLE_OTHER_COURSE_SETTINGS': True,
+}
+
 COURSE_KEY_PATTERN = r'(?P<course_key_string>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 COURSE_ID_PATTERN = COURSE_KEY_PATTERN.replace('course_key_string', 'course_id')
 

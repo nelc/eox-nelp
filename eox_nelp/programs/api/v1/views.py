@@ -87,7 +87,7 @@ class ProgramsMetadataView(APIView):
         serializer = ProgramsMetadataSerializer(data=program_metadata)
         serializer.is_valid(raise_exception=True)
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
     def post(self, request, course_key_string):
