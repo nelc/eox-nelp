@@ -30,9 +30,9 @@ def get_course_list_view():
 
 
 class TestCourseListView(DummyListView):
-    queryset = CourseOverview.objects.all()
     pagination_class = NamespacedPageNumberPagination
-
+    def get_queryset(self):
+        return CourseOverview.objects.all()
 
 class TestCourseDetailView(DummyRetrieveView):
     queryset = CourseOverview.objects.all()

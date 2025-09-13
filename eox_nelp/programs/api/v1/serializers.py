@@ -1,8 +1,7 @@
 """Programs API v1 Serializers."""
 
 from rest_framework import serializers
-
-
+from rest_framework.exceptions import ValidationError
 class ProgramsMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
     """
     Serializer for programs metadata.
@@ -36,3 +35,48 @@ class ProgramsMetadataSerializer(serializers.Serializer):  # pylint: disable=abs
         if not value or len(value.strip()) == 0:
             raise serializers.ValidationError("Program_code cannot be empty")
         return value.strip()
+
+
+class ProgramLookupSerializer(serializers.Serializer):
+    """
+    DRF serializer for Program data, with methods for input validation.
+    This serializer is designed to match the specific field names
+    provided in the user's data object.
+    """
+    # Direct field mappings
+    Program_name = serializers.CharField(required=True)
+    Program_code = serializers.CharField(required=True)
+    Type_of_Activity = serializers.CharField(required=True)
+    Type_of_Activity_id = serializers.IntegerField(required=True)
+    Mandatory = serializers.CharField(required=True)
+    Program_ABROVE = serializers.CharField(required=True)
+    Code = serializers.CharField(required=True)
+
+    # Mapped fields to match the provided data
+    Date_Start = serializers.CharField(required=True)
+    Date_End = serializers.CharField(required=True, allow_null=True)
+    duration = serializers.IntegerField(required=False)
+
+    # Fields with fixed values, using read_only and default
+    Training_location = serializers.CharField(read_only=True, default="FutureX")
+    Trainer_type = serializers.IntegerField(read_only=True, default=10)
+    Unit = serializers.CharField(read_only=True, default="hour")
+
+    # --- Methods for input validation (validate methods) ---
+    def validate_Mandatory(self, value):
+        """Validates that 'Mandatory' is either '01' or '00'."""
+        if value not in ["01", "00"]:
+            raise ValidationError("Mandatory field must be '01' or '00'.")
+        return value
+
+    def validate_Program_ABROVE(self, value):
+        """Validates that 'Program_ABROVE' is either '01' or '00'."""
+        if value not in ["01", "00"]:
+            raise ValidationError("Program_ABROVE field must be '01' or '00'.")
+        return value
+
+    def validate_duration(self, value):
+        """Validates that 'duration' is a non-negative number."""
+        if value is not None and value < 0:
+            raise ValidationError("Duration must be a non-negative number.")
+        return value
