@@ -11,6 +11,7 @@ from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from eox_nelp.programs.api.v1.permissions import HasStudioWriteAccess
 from eox_nelp.programs.api.v1.serializers import ProgramsMetadataSerializer
 from eox_nelp.programs.api.v1.utils import get_program_metadata, update_program_metadata
 
@@ -65,7 +66,7 @@ class ProgramsMetadataView(APIView):
     """
 
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasStudioWriteAccess]
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, "DEBUG", None) else [JSONRenderer]
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
