@@ -2,8 +2,7 @@
 This file contains all the necessary student dependencies from
 https://github.com/eduNEXT/edunext-platform/tree/ednx-release/mango.master/common/djangoapps/student
 """
-from common.djangoapps.student import auth
-from common.djangoapps.student import roles
+from common.djangoapps.student import auth, roles
 from common.djangoapps.student.admin import CourseEnrollmentAdmin
 from common.djangoapps.student.models import (  # pylint: disable=import-error
     AnonymousUserId,
