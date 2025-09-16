@@ -81,8 +81,7 @@ class ProgramsMetadataView(APIView):
         Returns:
             Response with program metadata or error
         """
-        program_metadata = get_program_metadata(course_key_string)
-        if not program_metadata:
+        if not (program_metadata := get_program_metadata(course_key_string)):
             return Response({"error": "Program metadata not found"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ProgramsMetadataSerializer(data=program_metadata)
