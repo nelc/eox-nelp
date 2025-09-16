@@ -5,6 +5,17 @@ This module provides API endpoints for managing program metadata in the eox-nelp
 ## API Endpoints
 
 ### GET eox-nelp/api/programs/v1/metadata/{course_key_string}
+### POST eox-nelp/api/programs/v1/metadata/{course_key_string}
+**POST Data Payload:**
+ ```json
+{
+    "trainer_type": 10,
+    "Type_of_Activity": 155,
+    "Mandatory": "01",
+    "Program_ABROVE": "00",
+    "Program_code": "FX-TEACHER-101"
+}
+```
 
 Retrieves metadata for a specific course program.
 
@@ -80,10 +91,7 @@ The API uses Django REST Framework with edx-drf-extensions for authentication:
 
 
 ### Data Model
-The API currently uses mock data. In production, this would integrate with:
-- Course database for course information
-- External services for program metadata
-- Learning management system APIs
+The API currently saves program_metada in `advanced_settings.other_course_settings` of the course structure.
 
 ### Error Handling
 Comprehensive error handling for:
@@ -108,9 +116,3 @@ eox_nelp/programs/
         ├── views.py
         └── serializers.py
 ```
-
-### Adding New Endpoints
-1. Add new views in `api/v1/views.py`
-2. Create serializers in `api/v1/serializers.py`
-3. Update URLs in `api/v1/urls.py`
-4. Update this README with documentation

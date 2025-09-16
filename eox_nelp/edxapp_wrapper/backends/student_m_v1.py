@@ -51,7 +51,7 @@ def get_student_roles():
 
 def get_student_auth():
     """Allow to get the Auth Module file from
-    https://github.com/eduNEXT/edunext-platform/blob/ednx-release/mango.master.nelp/common/djangoapps/student/auth.py
+    https://github.com/nelc/edx-platform/blob/open-release/redwood.nelp/common/djangoapps/student/auth.py
     Returns:
         Auth module.
     """
