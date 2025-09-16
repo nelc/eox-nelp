@@ -70,18 +70,18 @@ class ProgramsMetadataView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer] if getattr(settings, "DEBUG", None) else [JSONRenderer]
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
-    def get(self, request, course_key_string):  # pylint: disable=unused-argument
+    def get(self, request, course_id):  # pylint: disable=unused-argument
         """
         Retrieve program metadata for the specified course ID.
 
         Args:
             request: HTTP request object
-            course_key_string: Course identifier
+            course_id: Course identifier
 
         Returns:
             Response with program metadata or error
         """
-        if not (program_metadata := get_program_metadata(course_key_string)):
+        if not (program_metadata := get_program_metadata(course_id)):
             return Response({"error": "Program metadata not found"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = ProgramsMetadataSerializer(data=program_metadata)
@@ -90,19 +90,19 @@ class ProgramsMetadataView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @require_feature_enabled("ENABLE_OTHER_COURSE_SETTINGS")
-    def post(self, request, course_key_string):
+    def post(self, request, course_id):
         """
         Create or update program metadata for the specified course ID.
 
         Args:
             request: HTTP request object containing program metadata
-            course_key_string: Course identifier
+            course_id: Course identifier
 
         Returns:
             Response with updated program metadata or error
         """
         serializer = ProgramsMetadataSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        update_program_metadata(course_key_string, serializer.data, request.user)
+        update_program_metadata(course_id, serializer.data, request.user)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

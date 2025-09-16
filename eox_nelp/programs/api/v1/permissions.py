@@ -14,6 +14,6 @@ class HasStudioWriteAccess(BasePermission):
         """
         Check if the user has write access to studio.
         """
-        course_key_string = view.kwargs.get("course_key_string")
-        course_key = CourseKey.from_string(course_key_string)
+        course_id = view.kwargs.get("course_id")
+        course_key = CourseKey.from_string(course_id)
         return auth.has_studio_write_access(request.user, course_key)

@@ -24,8 +24,8 @@ class ProgramsMetadataViewTestCase(TestCase):
             password="testpass",
         )
         self.client.force_authenticate(self.user)
-        self.course_key_string = "course-v1:edX+DemoX+Demo_Course"
-        self.url = reverse("programs-api:v1:programs-metadata", args=[self.course_key_string])
+        self.course_id = "course-v1:edX+DemoX+Demo_Course"
+        self.url = reverse("programs-api:v1:programs-metadata", args=[self.course_id])
 
     def test_get_program_metadata_success(self):
         """
@@ -49,7 +49,7 @@ class ProgramsMetadataViewTestCase(TestCase):
 
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual(response.data, mock_metadata)
-            mock_get.assert_called_once_with(self.course_key_string)
+            mock_get.assert_called_once_with(self.course_id)
 
     def test_get_program_metadata_not_found(self):
         """
@@ -131,7 +131,7 @@ class ProgramsMetadataViewTestCase(TestCase):
                 "Program_ABROVE": "01",
                 "Program_code": "TEST001",
             }
-            mock_update.assert_called_once_with(self.course_key_string, expected_data, self.user)
+            mock_update.assert_called_once_with(self.course_id, expected_data, self.user)
 
     def test_post_program_metadata_invalid_data(self):
         """
