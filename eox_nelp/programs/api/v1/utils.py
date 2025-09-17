@@ -4,11 +4,13 @@ This module provides utility functions for managing program metadata
 in the context of course programs. It includes functions to retrieve
 and update program metadata associated with courses.
 """
-from opaque_keys.edx.keys import CourseKey
-from hijridate import Gregorian
 from datetime import datetime
 
+from hijridate import Gregorian
+from opaque_keys.edx.keys import CourseKey
+
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
+
 
 def get_program_metadata(course_id):
     """

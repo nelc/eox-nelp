@@ -1,20 +1,11 @@
 """Programs API v1 Serializers."""
+# pylint: disable=invalid-name
 
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
-class ProgramsMetadataSerializer(serializers.Serializer):  # pylint: disable=abstract-method
-    """
-    Serializer for programs metadata.
 
-    This serializer handles the metadata for a specific course program.
-    """
-    # pylint: disable=invalid-name
-    # This is for use DRF logic of validation, but the fields or the API are very rare in shape.
-    trainer_type = serializers.IntegerField(default=10, read_only=True)
-    Type_of_Activity = serializers.IntegerField()
-    Mandatory = serializers.CharField(max_length=2)
-    Program_ABROVE = serializers.CharField(max_length=2)
-    Program_code = serializers.CharField(max_length=64)
+
+class ProgramValidationMixin:
+    """Mixin to add common validation methods for program serializers."""
 
     def validate_Mandatory(self, value):
         """Validate Mandatory field."""
@@ -37,7 +28,21 @@ class ProgramsMetadataSerializer(serializers.Serializer):  # pylint: disable=abs
         return value.strip()
 
 
-class ProgramLookupSerializer(serializers.Serializer):
+class ProgramsMetadataSerializer(serializers.Serializer, ProgramValidationMixin):  # pylint: disable=abstract-method
+    """
+    Serializer for programs metadata.
+
+    This serializer handles the metadata for a specific course program.
+    """
+    # This is for use DRF logic of validation, but the fields or the API are very rare in shape.
+    trainer_type = serializers.IntegerField(default=10, read_only=True)
+    Type_of_Activity = serializers.IntegerField()
+    Mandatory = serializers.CharField(max_length=2)
+    Program_ABROVE = serializers.CharField(max_length=2)
+    Program_code = serializers.CharField(max_length=64)
+
+
+class ProgramLookupSerializer(serializers.Serializer, ProgramValidationMixin):  # pylint: disable=abstract-method
     """
     DRF serializer for Program data, with methods for input validation.
     This serializer is designed to match the specific field names
@@ -63,22 +68,3 @@ class ProgramLookupSerializer(serializers.Serializer):
     Training_location = serializers.CharField(read_only=True, default="FutureX")
     Trainer_type = serializers.IntegerField(read_only=True, default=10)
     Unit = serializers.CharField(read_only=True, default="hour")
-
-    # --- Methods for input validation (validate methods) ---
-    def validate_Mandatory(self, value):
-        """Validates that 'Mandatory' is either '01' or '00'."""
-        if value not in ["01", "00"]:
-            raise ValidationError("Mandatory field must be '01' or '00'.")
-        return value
-
-    def validate_Program_ABROVE(self, value):
-        """Validates that 'Program_ABROVE' is either '01' or '00'."""
-        if value not in ["01", "00"]:
-            raise ValidationError("Program_ABROVE field must be '01' or '00'.")
-        return value
-
-    def validate_duration(self, value):
-        """Validates that 'duration' is a non-negative number."""
-        if value is not None and value < 0:
-            raise ValidationError("Duration must be a non-negative number.")
-        return value

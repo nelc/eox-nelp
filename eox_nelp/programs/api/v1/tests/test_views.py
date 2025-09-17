@@ -393,7 +393,12 @@ class ProgramsListViewTestCase(APITestCase):
         mock_get_program_metadata,
         mock_super_get,
     ):
-        """Test GET returns program list for authenticated user."""
+        """
+        Test GET returns program list for authenticated user.
+        Expected behavior:
+            - Status code 200.
+            - Response is a list of program dicts matching expected_data.
+        """
         mock_super_get.return_value.data = {"results": COURSE_API_DATA}
         mock_get_program_metadata.return_value = {
             "trainer_type": 10,
@@ -451,7 +456,13 @@ class ProgramsListViewTestCase(APITestCase):
     def test_get_programs_list_with_national_id(
         self, mock_courses, mock_is_enrolled, mock_serializer, mock_lookup_repr,
     ):
-        """Test GET returns program list for user with given national_id."""
+        """
+        Test GET returns program list for user with given national_id.
+        Expected behavior:
+            - Status code 200.
+            - Response is a list of program dicts for the user with the given national_id.
+            - The first program's id matches the mocked course id.
+        """
         user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
         national_id = "1222888000"
         ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
@@ -475,10 +486,18 @@ class ProgramsListViewTestCase(APITestCase):
         self.assertEqual(response.data[0]["id"], "course-v1:edx+special+2024")
 
     def test_get_programs_list_unauthenticated(self):
-        """Test GET returns 401 for unauthenticated user."""
+        """
+        Test GET returns 401 for unauthenticated user.
+        Expected behavior:
+            - Status code 401.
+            - Response contains authentication error message.
+        """
         client = APIClient()
+
         response = client.get(self.url)
+
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("Authentication credentials were not provided", str(response.data))
 
     @patch("eox_nelp.programs.api.v1.views.NelpCourseListView.get")
     @patch("eox_nelp.programs.api.v1.views.get_program_lookup_representation")
@@ -486,7 +505,13 @@ class ProgramsListViewTestCase(APITestCase):
     def test_get_programs_list_invalid_serializer(
         self, mock_serializer, mock_lookup_repr, mock_super_get
     ):
-        """Test GET returns error if ProgramLookupSerializer is invalid."""
+        """
+        Test GET returns error if ProgramLookupSerializer is invalid.
+        Expected behavior:
+            - Status code 200.
+            - Response is a list with an error dict as the first item.
+            - The error dict contains 'error' and 'details' keys.
+        """
         mock_super_get.return_value.data = {"results": COURSE_API_DATA}
         mock_lookup_repr.return_value = {"id": "course-v1:edx+fail+2024", "meta": "meta"}
         mock_serializer_instance = MagicMock()
@@ -503,7 +528,12 @@ class ProgramsListViewTestCase(APITestCase):
 
     @patch("eox_nelp.programs.api.v1.views.NelpCourseListView.get")
     def test_get_programs_list_no_enrolled_courses(self, mock_super_get):
-        """Test GET returns empty list if no enrolled courses."""
+        """
+        Test GET returns empty list if no enrolled courses.
+        Expected behavior:
+            - Status code 200.
+            - Response is an empty list.
+        """
         mock_super_get.return_value.data = {"results": []}
 
         response = self.client.get(self.url)
@@ -514,7 +544,7 @@ class ProgramsListViewTestCase(APITestCase):
 
 COURSE_API_DATA = [
     {
-        "blocks_url": "http://local.overhang.io:8000/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2020323",
+        "blocks_url": "http://local/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2020323",
         "effort": None,
         "end": None,
         "enrollment_start": None,
@@ -523,14 +553,14 @@ COURSE_API_DATA = [
         "media": {
             "banner_image": {
                 "uri": "/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
-                "uri_absolute": "http://local.overhang.io:8000/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "uri_absolute": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
             },
             "course_image": {"uri": "/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg"},
             "course_video": {"uri": None},
             "image": {
-                "raw": "http://local.overhang.io:8000/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
-                "small": "http://local.overhang.io:8000/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
-                "large": "http://local.overhang.io:8000/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "raw": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "small": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "large": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
             },
         },
         "name": "testigngg",
@@ -545,11 +575,11 @@ COURSE_API_DATA = [
         "hidden": False,
         "invitation_only": False,
         "course_id": "course-v1:edx+cd101+2020323",
-        "course_about_url": "http://local.overhang.io:8000/courses/course-v1:edx+cd101+2020323/about",
+        "course_about_url": "http://local/courses/course-v1:edx+cd101+2020323/about",
         "course_home_url": "http://apps.local.overhang.io:2000/learning/course/course-v1:edx+cd101+2020323/home",
     },
     {
-        "blocks_url": "http://local.overhang.io:8000/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2023-t1",
+        "blocks_url": "http://local/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2023-t1",
         "effort": "2",
         "end": "2034-12-25T00:00:00Z",
         "enrollment_start": "2019-05-31T00:00:00Z",
@@ -558,14 +588,14 @@ COURSE_API_DATA = [
         "media": {
             "banner_image": {
                 "uri": "/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
-                "uri_absolute": "http://local.overhang.io:8000/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "uri_absolute": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
             },
             "course_image": {"uri": "/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg"},
             "course_video": {"uri": None},
             "image": {
-                "raw": "http://local.overhang.io:8000/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
-                "small": "http://local.overhang.io:8000/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
-                "large": "http://local.overhang.io:8000/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "raw": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "small": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "large": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
             },
         },
         "name": "small-graded",

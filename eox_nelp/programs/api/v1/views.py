@@ -169,6 +169,15 @@ class ProgramsListView(NelpCourseListView):
 
     @require_national_id_query_param()
     def get(self, request, *args, **kwargs):
+        """
+        List courses with program metadata for the request user or filtered by national_id.
+        Args:
+            request: HTTP request object
+            *args: Additional arguments
+            **kwargs: Additional keyword arguments
+        Returns:
+            Response with list of courses and their program metadata or error
+        """
         course_api_list = super().get(request, *args, **kwargs).data["results"]
 
         program_lookup_list = []

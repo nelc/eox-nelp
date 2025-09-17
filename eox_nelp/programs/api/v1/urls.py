@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.urls import path, re_path
 
-from eox_nelp.programs.api.v1.views import ProgramsMetadataView, ProgramsListView
+from eox_nelp.programs.api.v1.views import ProgramsListView, ProgramsMetadataView
 
 app_name = "eox_nelp"  # pylint: disable=invalid-name
 
