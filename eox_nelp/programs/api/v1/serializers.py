@@ -55,6 +55,8 @@ class ProgramLookupSerializer(serializers.Serializer):
     # Mapped fields to match the provided data
     Date_Start = serializers.CharField(required=True)
     Date_End = serializers.CharField(required=True, allow_null=True)
+    Date_Start_Hijri = serializers.CharField(required=True)
+    Date_End_Hijri = serializers.CharField(required=True, allow_null=True)
     duration = serializers.IntegerField(required=False)
 
     # Fields with fixed values, using read_only and default

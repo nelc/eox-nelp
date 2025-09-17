@@ -5,9 +5,10 @@ in the context of course programs. It includes functions to retrieve
 and update program metadata associated with courses.
 """
 from opaque_keys.edx.keys import CourseKey
+from hijridate import Gregorian
+from datetime import datetime
 
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
-
 
 def get_program_metadata(course_id):
     """
@@ -56,13 +57,16 @@ def get_program_lookup_representation(course_api_data):
         dict: Lookup representation with selected fields
     """
     program_metadata = get_program_metadata(course_api_data["id"])
-
+    data_start_iso = convert_to_isoformat(course_api_data.get("start"))
+    data_end_iso = convert_to_isoformat(course_api_data.get("end"))
     program_lookup_representation = {
         "Program_name": course_api_data.get("name"),
         "Program_code": program_metadata.get("Program_code"),
         "Training_location": "FutureX",
-        "Date_Start": course_api_data.get("start"),
-        "Date_End": course_api_data.get("end"),
+        "Date_Start": data_start_iso,
+        "Date_Start_Hijri": Gregorian.fromisoformat(data_start_iso).to_hijri().isoformat() if data_start_iso else None,
+        "Date_End": data_end_iso,
+        "Date_End_Hijri": Gregorian.fromisoformat(data_end_iso).to_hijri().isoformat() if data_end_iso else None,
         "Trainer_type": 10,
         "Type_of_Activity": TYPES_OF_ACTIVITY_MAPPING.get(program_metadata.get("Type_of_Activity", -1)),
         "Type_of_Activity_id": program_metadata.get("Type_of_Activity"),
@@ -74,6 +78,27 @@ def get_program_lookup_representation(course_api_data):
     }
     return program_lookup_representation
 
+
+def convert_to_isoformat(date_string):
+    """
+    Parses a datetime string ending with 'Z' (for UTC) and returns
+    a timezone-aware datetime object in ISO 8601 format.
+
+    Args:
+        date_string (str): A string in the format 'YYYY-MM-DDTHH:MM:SSZ'.
+
+    Returns:
+        str: The timezone-aware datetime string in ISO 8601 format.
+    """
+    if not date_string:
+        return None
+    # Replace 'Z' with '+00:00' to match the expected format for UTC offset
+    try:
+        dt_object = datetime.strptime(date_string.replace('Z', '+00:00'), '%Y-%m-%dT%H:%M:%S%z')
+        return dt_object.date().isoformat()
+    except ValueError as e:
+        print(f"Error parsing date string: {e}")
+        return None
 
 
 TYPES_OF_ACTIVITY_MAPPING = {

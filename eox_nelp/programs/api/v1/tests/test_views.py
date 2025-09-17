@@ -411,8 +411,10 @@ class ProgramsListViewTestCase(APITestCase):
                 "Mandatory": "01",
                 "Program_ABROVE": "00",
                 "Code": "course-v1:edx+cd101+2020323",
-                "Date_Start": "2030-01-01T00:00:00Z",
+                "Date_Start": "2030-01-01",
                 "Date_End": None,
+                "Date_Start_Hijri": '1451-08-26',
+                "Date_End_Hijri": None,
                 "duration": 0,
                 "Training_location": "FutureX",
                 "Trainer_type": 10,
@@ -426,8 +428,10 @@ class ProgramsListViewTestCase(APITestCase):
                 "Mandatory": "01",
                 "Program_ABROVE": "00",
                 "Code": "course-v1:edx+cd101+2023-t1",
-                "Date_Start": "2020-01-01T00:00:00Z",
-                "Date_End": "2034-12-25T00:00:00Z",
+                "Date_Start": "2020-01-01",
+                "Date_End": "2034-12-25",
+                "Date_Start_Hijri": "1441-05-06",
+                "Date_End_Hijri": "1456-10-14",
                 "duration": 2,
                 "Training_location": "FutureX",
                 "Trainer_type": 10,
@@ -436,7 +440,6 @@ class ProgramsListViewTestCase(APITestCase):
         ]
 
         response = self.client.get(self.url)
-
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertListEqual(response.data, expected_data)
