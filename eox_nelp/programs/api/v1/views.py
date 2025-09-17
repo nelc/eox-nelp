@@ -191,7 +191,7 @@ class ProgramsListView(NelpCourseListView):
                     {
                         "error": "Invalid program lookup data",
                         "details": program_lookup_serializer.errors,
-                        "course_id": course_api_data.get("id"),
+                        "course_id": course_api_data.get("course_id"),
                     }
                 )
 

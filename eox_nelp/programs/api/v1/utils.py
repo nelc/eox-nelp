@@ -76,7 +76,7 @@ def get_program_lookup_representation(course_api_data):
         "duration": int(course_api_data.get("effort") or 0),
         "Mandatory": program_metadata.get("Mandatory"),
         "Program_ABROVE": program_metadata.get("Program_ABROVE"),
-        "Code": course_api_data["id"],
+        "Code": course_api_data["course_id"],
     }
     return program_lookup_representation
 
