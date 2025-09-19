@@ -14,7 +14,7 @@ from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from eox_nelp.course_api.v1.views import NelpCourseListView
+from eox_nelp.edxapp_wrapper.course_api import CourseDetailSerializer, CourseListView
 from eox_nelp.edxapp_wrapper.student import CourseEnrollment
 from eox_nelp.programs.api.v1.permissions import HasStudioWriteAccess, ProgramsLookupPermission
 from eox_nelp.programs.api.v1.serializers import ProgramLookupSerializer, ProgramsMetadataSerializer
@@ -46,24 +46,16 @@ def require_feature_enabled(feature_name):
     return decorator
 
 
-def require_national_id_query_param():
+def process_national_id_query_param():
     """Decorator to check if national_id query parameter is valid if provided.
     If not provided, the view will proceed without filtering by national_id.
-    Using the request user if not provided.
-    Returns 400 if missing and 422 if invalid.
+    Using the request user if not provided. Added to the request object the nid_user attribute.
+    Returns  422 if invalid.
     """
     def decorator(func):
         @wraps(func)
         def wrapper(self, request, *args, **kwargs):
-            if self.request.query_params:
-                if not (national_id := self.request.query_params.get("national_id", "")):
-                    return Response(
-                        {
-                            "error": "MISSING_NATIONAL_ID",
-                            "message": "national_id query parameter is required."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            if national_id := self.request.query_params.get("national_id"):
                 if not is_valid_national_id(national_id):
                     return Response(
                         {
@@ -72,6 +64,7 @@ def require_national_id_query_param():
                         },
                         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     )
+                setattr(request, 'nid_user', get_object_or_404(User, extrainfo__national_id=national_id))
             return func(self, request, *args, **kwargs)
 
         return wrapper
@@ -153,7 +146,7 @@ class ProgramsMetadataView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class ProgramsListView(NelpCourseListView):
+class ProgramsListView(CourseListView):
     """
     API view to list courses with program metadata.
     **Use Cases**
@@ -166,51 +159,39 @@ class ProgramsListView(NelpCourseListView):
     """
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated, ProgramsLookupPermission]
+    serializer_class = ProgramLookupSerializer
 
-    @require_national_id_query_param()
+    @process_national_id_query_param()
     def get(self, request, *args, **kwargs):
-        """
-        List courses with program metadata for the request user or filtered by national_id.
-        Args:
-            request: HTTP request object
-            *args: Additional arguments
-            **kwargs: Additional keyword arguments
-        Returns:
-            Response with list of courses and their program metadata or error
-        """
-        course_api_list = super().get(request, *args, **kwargs).data["results"]
-
-        program_lookup_list = []
-        for course_api_data in course_api_list:
-            program_lookup = get_program_lookup_representation(course_api_data)
-            program_lookup_serializer = ProgramLookupSerializer(data=program_lookup)
-            if program_lookup_serializer.is_valid():
-                program_lookup_list.append(program_lookup_serializer.data)
-            else:
-                program_lookup_list.append(
-                    {
-                        "error": "Invalid program lookup data",
-                        "details": program_lookup_serializer.errors,
-                        "course_id": course_api_data.get("course_id"),
-                    }
-                )
-
-        return Response(program_lookup_list, status=status.HTTP_200_OK)
+        """Override get to apply some filtering and pre processing."""
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         """Override qs to query by national_id if provided.
-        Also filter by enrolled courses only.
         Returns:
-            List of enrolled courses for the user qs: Depending on performance this list queryset  could be improved to
-            lazy sequence as used in
-            https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
-
+            QuerySet: queryset of courses depending on national_id presence.
+            If national_id is provided, returns courses the user nid.
+            If not provided, returns all courses visible to the request user.
         """
-        user = self.request.user
-        if national_id := self.request.query_params.get("national_id"):
-            user = get_object_or_404(User, extrainfo__national_id=national_id)
-            visible_courses_qs = courses.get_courses(user=user)
-        else:
-            visible_courses_qs = super().get_queryset()
-        enrolled_qs = [course for course in visible_courses_qs if CourseEnrollment.is_enrolled(user, str(course.id))]
-        return enrolled_qs
+        if getattr(self.request, 'nid_user', None):
+            return courses.get_courses(user=self.request.nid_user)
+        return super().get_queryset() ##Visible user queryset
+
+    def filter_queryset(self, queryset):
+        """
+        Filter the queryset by course enrolled if the national_id query param is present.
+        Returns:
+        List of enrolled courses for the user qs: Depending on performance this list queryset  could be improved to
+        lazy sequence as used in
+        https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
+        """
+        if getattr(self.request, 'nid_user', None):
+            queryset = [course for course in queryset if CourseEnrollment.is_enrolled(self.request.nid_user, str(course.id))]
+
+        program_queryset = []
+        for course in queryset:
+            course_data = CourseDetailSerializer(course, context={'request': self.request}).data
+            program_lookup = get_program_lookup_representation(course_data)
+            program_queryset.append(program_lookup)
+
+        return program_queryset
