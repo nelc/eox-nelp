@@ -49,7 +49,7 @@ def require_feature_enabled(feature_name):
 def process_national_id_query_param():
     """Decorator to check if national_id query parameter is valid if provided.
     If not provided, the view will proceed without filtering by national_id.
-    Using the request user if not provided. Added to the request object the nid_user attribute.
+    Using the request user if not provided. Added to the request object the national_id_user attribute.
     Returns  422 if invalid.
     """
     def decorator(func):
@@ -64,7 +64,7 @@ def process_national_id_query_param():
                         },
                         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     )
-                setattr(request, 'nid_user', get_object_or_404(User, extrainfo__national_id=national_id))
+                setattr(request, 'national_id_user', get_object_or_404(User, extrainfo__national_id=national_id))
             return func(self, request, *args, **kwargs)
 
         return wrapper
@@ -174,8 +174,8 @@ class ProgramsListView(CourseListView):
             If national_id is provided, returns courses the user nid.
             If not provided, returns all courses visible to the request user.
         """
-        if getattr(self.request, 'nid_user', None):
-            return courses.get_courses(user=self.request.nid_user)
+        if getattr(self.request, 'national_id_user', None):
+            return courses.get_courses(user=self.request.national_id_user)
         return super().get_queryset()  # Visible courses for user queryset
 
     def filter_queryset(self, queryset):
@@ -186,9 +186,9 @@ class ProgramsListView(CourseListView):
         lazy sequence as used in
         https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
         """
-        if getattr(self.request, 'nid_user', None):
+        if getattr(self.request, 'national_id_user', None):
             queryset = [
-                course for course in queryset if CourseEnrollment.is_enrolled(self.request.nid_user, str(course.id))
+                course for course in queryset if CourseEnrollment.is_enrolled(self.request.national_id_user, str(course.id))
             ]
         program_queryset = []
         for course in queryset:
