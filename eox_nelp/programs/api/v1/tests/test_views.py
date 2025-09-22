@@ -596,19 +596,71 @@ class ProgramsListViewTestCase(APITestCase):
         self.assertListEqual(expected_data, response.data["results"])
 
     @patch("eox_nelp.programs.api.v1.views.CourseListView.get_queryset")
-    def test_get_programs_list_no_enrolled_courses(self, mock_super_get):
+    def test_get_programs_list_not_found_national_id(self, mock_super_get):
         """
         Test GET returns empty list if no enrolled courses.
         Expected behavior:
-            - Status code 200.
-            - Response is an empty list.
+            - Status code 404.
+            - Response is an error message.
         """
+        national_id = "1333888000"
         mock_super_get.return_value.data = {"results": []}
 
-        response = self.client.get(self.url)
+        response = self.client.get(self.url, {"national_id": national_id})
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["results"], [])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data,
+            {
+                "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                "message": f"No program found for the provided National ID {national_id}.",
+            }
+        )
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
+    @patch("eox_nelp.programs.api.v1.views.courses")
+    def test_get_programs_list_no_courses_enrolled(
+        self, mock_courses, mock_is_enrolled, _, mock_course_serializer,
+    ):
+        """
+        Test GET returns program list for user with given national_id.
+        Expected behavior:
+            - Status code 400.
+            - The expected data matches with the response.
+            - courses.get_courses mock is called with correct user.
+            - CourseEnrollment.is_enrolled mock is called due national_id filter.
+        """
+        national_id_user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        national_id = "1222888000"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=national_id_user_instance,
+            arabic_name="مسؤل",
+            national_id=national_id,
+        )
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        course = MagicMock(id="course-v1:edx+special+2024")
+        mock_courses.get_courses.return_value = [course]
+        mock_is_enrolled.return_value = False
+
+        response = self.client.get(self.url, {"national_id": national_id})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data,
+            {
+                "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                "message": f"No program found for the provided National ID {national_id}.",
+            }
+        )
+        mock_courses.get_courses.assert_called_once_with(user=national_id_user_instance)
+        mock_is_enrolled.assert_called()
 
 
 COURSE_API_SERIALIZER_DATA = [

@@ -13,7 +13,6 @@ from opaque_keys.edx.keys import CourseKey
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -104,5 +103,5 @@ def convert_to_isoformat(date_string):
         dt_object = datetime.strptime(date_string.replace('Z', '+00:00'), '%Y-%m-%dT%H:%M:%S%z')
         return dt_object.date().isoformat()
     except ValueError as e:
-        logger.error(f"Error parsing date string: {e}")
+        logger.error("Error parsing date string: %s", e)
         return None

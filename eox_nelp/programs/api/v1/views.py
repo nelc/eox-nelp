@@ -167,6 +167,20 @@ class ProgramsListView(CourseListView):
         """Override get to apply some filtering and pre processing."""
         return super().get(request, *args, **kwargs)
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        """Override finalize response method to apply some post processing with decorator before the parent call.
+        And manage the response after the calls to match business requirements.
+        """
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if national_id := self.request.query_params.get("national_id"):
+            if response.status_code == status.HTTP_404_NOT_FOUND or not response.data["results"]:
+                response.data = {
+                    "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                    "message": f"No program found for the provided National ID {national_id}."
+                }
+                response.status_code = status.HTTP_404_NOT_FOUND
+        return response
+
     def get_queryset(self):
         """Override qs to query by national_id if provided.
         Returns:
