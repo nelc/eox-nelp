@@ -1,12 +1,10 @@
 """Programs API v1 Serializers."""
-# pylint: disable=invalid-name
-
 from rest_framework import serializers
 
 
 class ProgramValidationMixin:
     """Mixin to add common validation methods for program serializers."""
-
+    # pylint: disable=invalid-name
     def validate_Mandatory(self, value):
         """Validate Mandatory field."""
         valid_values = ["01", "00"]
