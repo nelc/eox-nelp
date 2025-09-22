@@ -175,7 +175,7 @@ class ProgramsListView(CourseListView):
         """
         if getattr(self.request, 'nid_user', None):
             return courses.get_courses(user=self.request.nid_user)
-        return super().get_queryset() ##Visible user queryset
+        return super().get_queryset()  # Visible courses for user queryset
 
     def filter_queryset(self, queryset):
         """
@@ -186,8 +186,9 @@ class ProgramsListView(CourseListView):
         https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
         """
         if getattr(self.request, 'nid_user', None):
-            queryset = [course for course in queryset if CourseEnrollment.is_enrolled(self.request.nid_user, str(course.id))]
-
+            queryset = [
+                course for course in queryset if CourseEnrollment.is_enrolled(self.request.nid_user, str(course.id))
+            ]
         program_queryset = []
         for course in queryset:
             course_data = CourseDetailSerializer(course, context={'request': self.request}).data

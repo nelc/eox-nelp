@@ -58,7 +58,7 @@ def get_program_lookup_representation(course_api_data):
     Returns:
         dict: Lookup representation with selected fields
     """
-    program_metadata = get_program_metadata(course_api_data["id"])
+    program_metadata = get_program_metadata(course_api_data["course_id"])
     data_start_iso = convert_to_isoformat(course_api_data.get("start"))
     data_end_iso = convert_to_isoformat(course_api_data.get("end"))
     program_lookup_representation = {

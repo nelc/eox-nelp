@@ -386,12 +386,12 @@ class ProgramsListViewTestCase(APITestCase):
         self.course1 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}1")
         self.course2 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}2")
 
-    @patch("eox_nelp.programs.api.v1.views.NelpCourseListView.get")
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     def test_get_programs_list_authenticated(
         self,
         mock_get_program_metadata,
-        mock_super_get,
+        mock_course_serializer,
     ):
         """
         Test GET returns program list for authenticated user.
@@ -399,7 +399,12 @@ class ProgramsListViewTestCase(APITestCase):
             - Status code 200.
             - Response is a list of program dicts matching expected_data.
         """
-        mock_super_get.return_value.data = {"results": COURSE_API_DATA}
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
         mock_get_program_metadata.return_value = {
             "trainer_type": 10,
             "Type_of_Activity": 165,
@@ -447,43 +452,72 @@ class ProgramsListViewTestCase(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertListEqual(response.data, expected_data)
+        self.assertListEqual(response.data["results"], expected_data)
 
-    @patch("eox_nelp.programs.api.v1.views.get_program_lookup_representation")
-    @patch("eox_nelp.programs.api.v1.views.ProgramLookupSerializer")
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_list_with_national_id(
-        self, mock_courses, mock_is_enrolled, mock_serializer, mock_lookup_repr,
+        self, mock_courses, mock_is_enrolled, mock_get_program_metadata, mock_course_serializer,
     ):
         """
         Test GET returns program list for user with given national_id.
         Expected behavior:
             - Status code 200.
-            - Response is a list of program dicts for the user with the given national_id.
-            - The first program's id matches the mocked course id.
+            - The expected data matches with the response.
+            - courses.get_courses mock is called with correct user.
+            - CourseEnrollment.is_enrolled mock is called due national_id filter.
         """
-        user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        nid_user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
         national_id = "1222888000"
         ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
-            user=user_instance,
+            user=nid_user_instance,
             arabic_name="مسؤل",
             national_id=national_id,
         )
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
         course = MagicMock(id="course-v1:edx+special+2024")
         mock_courses.get_courses.return_value = [course]
         mock_is_enrolled.return_value = True
-        mock_lookup_repr.return_value = {"id": "course-v1:edx+special+2024", "meta": "meta"}
-        mock_serializer_instance = MagicMock()
-        mock_serializer_instance.is_valid.return_value = True
-        mock_serializer_instance.data = {"id": "course-v1:edx+special+2024", "meta": "meta"}
-        mock_serializer.return_value = mock_serializer_instance
+        mock_get_program_metadata.return_value = {
+            "trainer_type": 10,
+            "Type_of_Activity": 165,
+            "Mandatory": "01",
+            "Program_ABROVE": "01",
+            "Program_code": "nationalidtest",
+        }
+        expected_data = [
+            {
+                "Program_name": "testigngg",
+                "Program_code": "nationalidtest",
+                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "Type_of_Activity_id": 165,
+                "Mandatory": "01",
+                "Program_ABROVE": "01",
+                "Code": "course-v1:edx+cd101+2020323",
+                "Date_Start": "2030-01-01",
+                "Date_End": None,
+                "Date_Start_Hijri": "1451-08-26",
+                "Date_End_Hijri": None,
+                "duration": 0,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            }
+        ]
 
         response = self.client.get(self.url, {"national_id": national_id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsInstance(response.data, list)
-        self.assertEqual(response.data[0]["id"], "course-v1:edx+special+2024")
+        self.assertListEqual(response.data["results"], expected_data)
+        mock_courses.get_courses.assert_called_once_with(user=nid_user_instance)
+        mock_is_enrolled.assert_called()
 
     def test_get_programs_list_unauthenticated(self):
         """
@@ -499,34 +533,69 @@ class ProgramsListViewTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Authentication credentials were not provided", str(response.data))
 
-    @patch("eox_nelp.programs.api.v1.views.NelpCourseListView.get")
-    @patch("eox_nelp.programs.api.v1.views.get_program_lookup_representation")
-    @patch("eox_nelp.programs.api.v1.views.ProgramLookupSerializer")
-    def test_get_programs_list_invalid_serializer(
-        self, mock_serializer, mock_lookup_repr, mock_super_get
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    def test_get_programs_list_missing_data(
+        self, mock_get_program_metadata, mock_course_serializer,
     ):
         """
         Test GET returns error if ProgramLookupSerializer is invalid.
         Expected behavior:
             - Status code 200.
-            - Response is a list with an error dict as the first item.
-            - The error dict contains 'error' and 'details' keys.
+            - Response result is alist.
+            - Expected data matches with null values
         """
-        mock_super_get.return_value.data = {"results": COURSE_API_DATA}
-        mock_lookup_repr.return_value = {"id": "course-v1:edx+fail+2024", "meta": "meta"}
-        mock_serializer_instance = MagicMock()
-        mock_serializer_instance.is_valid.return_value = False
-        mock_serializer_instance.errors = {"meta": ["invalid"]}
-        mock_serializer.return_value = mock_serializer_instance
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        mock_get_program_metadata.return_value = {}
+        expected_data = [
+            {
+                "Program_name": "testigngg",
+                "Program_code": None,
+                "Type_of_Activity": None,
+                "Type_of_Activity_id": None,
+                "Mandatory": None,
+                "Program_ABROVE": None,
+                "Code": "course-v1:edx+cd101+2020323",
+                "Date_Start": "2030-01-01",
+                "Date_End": None,
+                "Date_Start_Hijri": "1451-08-26",
+                "Date_End_Hijri": None,
+                "duration": 0,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+            {
+                "Program_name": "small-graded",
+                "Program_code": None,
+                "Type_of_Activity": None,
+                "Type_of_Activity_id": None,
+                "Mandatory": None,
+                "Program_ABROVE": None,
+                "Code": "course-v1:edx+cd101+2023-t1",
+                "Date_Start": "2020-01-01",
+                "Date_End": "2034-12-25",
+                "Date_Start_Hijri": "1441-05-06",
+                "Date_End_Hijri": "1456-10-14",
+                "duration": 2,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+        ]
 
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsInstance(response.data, list)
-        self.assertEqual(response.data[0]["error"], "Invalid program lookup data")
-        self.assertIn("details", response.data[0])
+        self.assertIsInstance(response.data["results"], list)
+        self.assertListEqual(expected_data, response.data["results"])
 
-    @patch("eox_nelp.programs.api.v1.views.NelpCourseListView.get")
+    @patch("eox_nelp.programs.api.v1.views.CourseListView.get_queryset")
     def test_get_programs_list_no_enrolled_courses(self, mock_super_get):
         """
         Test GET returns empty list if no enrolled courses.
@@ -539,10 +608,10 @@ class ProgramsListViewTestCase(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, [])
+        self.assertEqual(response.data["results"], [])
 
 
-COURSE_API_DATA = [
+COURSE_API_SERIALIZER_DATA = [
     {
         "blocks_url": "http://local/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2020323",
         "effort": None,
