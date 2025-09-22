@@ -10,6 +10,7 @@ from hijridate import Gregorian
 from opaque_keys.edx.keys import CourseKey
 
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
+from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
 
 
 def get_program_metadata(course_id):
@@ -101,19 +102,3 @@ def convert_to_isoformat(date_string):
     except ValueError as e:
         print(f"Error parsing date string: {e}")
         return None
-
-
-TYPES_OF_ACTIVITY_MAPPING = {
-    135: "التدريب - التدريب المباشر",
-    155: "التدريب - التدريب الإلكتروني",
-    165: "برنامج الاستثمار الأمثل (برامج قصيرة)",
-    175: "برنامج الاستثمار الأمثل (برامج طويلة)",
-    190: "الملتقيات - المؤتمرات",
-    195: "الملتقيات - اللقاءات التربوية",
-    200: "الملتقيات - المحاضرات",
-    205: "الملتقيات - الندوات",
-    270: "التعلم التشاركي - الزيارات الميدانية",
-    55: "ورش العمل - ورش العمل",
-    65: "التعلم التشاركي - الدروس التطبيقية",
-    75: "التعلم التشاركي - دورة بحث الدرس"
-}
