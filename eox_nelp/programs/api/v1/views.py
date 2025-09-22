@@ -151,7 +151,8 @@ class ProgramsListView(CourseListView):
     API view to list courses with program metadata.
     **Use Cases**
         - List visible courses with associated program metadata for request user
-        - List courses in which the user identified by national_id is enrolled, provided the requesting user has permission to view them.
+        - List courses in which the user identified by national_id is enrolled,
+          provided the requesting user has permission to view them.
 
     **Example Requests**
         GET /eox-nelp/api/programs/v1/program-lookup/
