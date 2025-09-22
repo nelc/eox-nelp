@@ -4,6 +4,7 @@ This module provides utility functions for managing program metadata
 in the context of course programs. It includes functions to retrieve
 and update program metadata associated with courses.
 """
+import logging
 from datetime import datetime
 
 from hijridate import Gregorian
@@ -11,6 +12,9 @@ from opaque_keys.edx.keys import CourseKey
 
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_program_metadata(course_id):
@@ -100,5 +104,5 @@ def convert_to_isoformat(date_string):
         dt_object = datetime.strptime(date_string.replace('Z', '+00:00'), '%Y-%m-%dT%H:%M:%S%z')
         return dt_object.date().isoformat()
     except ValueError as e:
-        print(f"Error parsing date string: {e}")
+        logger.error(f"Error parsing date string: {e}")
         return None
