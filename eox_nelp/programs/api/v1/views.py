@@ -170,30 +170,36 @@ class ProgramsListView(CourseListView):
     def get_queryset(self):
         """Override qs to query by national_id if provided.
         Returns:
-            QuerySet: queryset of courses depending on national_id presence.
-            If national_id is provided, returns courses the user nid.
-            If not provided, returns all courses visible to the request user.
+            QuerySet: queryset of programs depending on national_id presence.
+            If national_id is provided, returns programs visible to the user.
+            If not provided, returns all programs visible to the request user.
+            Depending on performance this list queryset  could be improved to
+            lazy sequence as used in
+            https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
         """
         if getattr(self.request, 'national_id_user', None):
-            return courses.get_courses(user=self.request.national_id_user)
-        return super().get_queryset()  # Visible courses for user queryset
-
-    def filter_queryset(self, queryset):
-        """
-        Filter the queryset by course enrolled if the national_id query param is present.
-        Returns:
-        List of enrolled courses for the user qs: Depending on performance this list queryset  could be improved to
-        lazy sequence as used in
-        https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
-        """
-        if getattr(self.request, 'national_id_user', None):
-            queryset = [
-                course for course in queryset if CourseEnrollment.is_enrolled(self.request.national_id_user, str(course.id))
-            ]
+            visible_courses_queryset = courses.get_courses(user=self.request.national_id_user)
+        else:
+            visible_courses_queryset = super().get_queryset()
         program_queryset = []
-        for course in queryset:
+        for course in visible_courses_queryset:
             course_data = CourseDetailSerializer(course, context={'request': self.request}).data
             program_lookup = get_program_lookup_representation(course_data)
             program_queryset.append(program_lookup)
 
         return program_queryset
+
+    def filter_queryset(self, queryset):
+        """
+        Filter the queryset by course enrolled if the national_id query param is present.
+        Returns:
+        List of enrolled courses for the user qs
+        """
+        if getattr(self.request, 'national_id_user', None):
+            queryset = [
+                program_data for program_data in queryset if CourseEnrollment.is_enrolled(
+                    self.request.national_id_user,
+                    program_data["Code"],
+                )
+            ]
+        return queryset
