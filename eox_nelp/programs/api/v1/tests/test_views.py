@@ -2,20 +2,22 @@
 Test views file for programs API v1.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from custom_reg_form.models import ExtraInfo
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
+
+from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 
 User = get_user_model()
 
 
 class ProgramsMetadataViewTestCase(TestCase):
     """Test cases for ProgramsMetadataView."""
-
     def setUp(self):
         """Set up test data."""
         self.client = APIClient()
@@ -370,3 +372,364 @@ class ProgramsMetadataViewTestCase(TestCase):
                         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                         if not value or not value.strip():
                             self.assertIn("This field may not be blank", str(response.data))
+
+
+class ProgramsListViewTestCase(APITestCase):
+    """Test cases for ProgramsListView."""
+    BASE_COURSE_ID = "course-v1:sky+walker+2023-v"
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = reverse("programs-api:v1:program-lookup")
+        self.course1 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}1")
+        self.course2 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}2")
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    def test_get_programs_list_authenticated(
+        self,
+        mock_get_program_metadata,
+        mock_course_serializer,
+    ):
+        """
+        Test GET returns program list for authenticated user.
+        Expected behavior:
+            - Status code 200.
+            - Response is a list of program dicts matching expected_data.
+        """
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        mock_get_program_metadata.return_value = {
+            "trainer_type": 10,
+            "Type_of_Activity": 165,
+            "Mandatory": "01",
+            "Program_ABROVE": "00",
+            "Program_code": "eltesst",
+        }
+        expected_data = [
+            {
+                "Program_name": "testigngg",
+                "Program_code": "eltesst",
+                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "Type_of_Activity_id": 165,
+                "Mandatory": "01",
+                "Program_ABROVE": "00",
+                "Code": "course-v1:edx+cd101+2020323",
+                "Date_Start": "2030-01-01",
+                "Date_End": None,
+                "Date_Start_Hijri": '1451-08-26',
+                "Date_End_Hijri": None,
+                "duration": 0,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+            {
+                "Program_name": "small-graded",
+                "Program_code": "eltesst",
+                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "Type_of_Activity_id": 165,
+                "Mandatory": "01",
+                "Program_ABROVE": "00",
+                "Code": "course-v1:edx+cd101+2023-t1",
+                "Date_Start": "2020-01-01",
+                "Date_End": "2034-12-25",
+                "Date_Start_Hijri": "1441-05-06",
+                "Date_End_Hijri": "1456-10-14",
+                "duration": 2,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+        ]
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertListEqual(response.data["results"], expected_data)
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
+    @patch("eox_nelp.programs.api.v1.views.courses")
+    def test_get_programs_list_with_national_id(
+        self, mock_courses, mock_is_enrolled, mock_get_program_metadata, mock_course_serializer,
+    ):
+        """
+        Test GET returns program list for user with given national_id.
+        Expected behavior:
+            - Status code 200.
+            - The expected data matches with the response.
+            - courses.get_courses mock is called with correct user.
+            - CourseEnrollment.is_enrolled mock is called due national_id filter.
+        """
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        national_id = "1222888000"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=user_by_national_id_instance,
+            arabic_name="مسؤل",
+            national_id=national_id,
+        )
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        course = MagicMock(id="course-v1:edx+special+2024")
+        mock_courses.get_courses.return_value = [course]
+        mock_is_enrolled.return_value = True
+        mock_get_program_metadata.return_value = {
+            "trainer_type": 10,
+            "Type_of_Activity": 165,
+            "Mandatory": "01",
+            "Program_ABROVE": "01",
+            "Program_code": "nationalidtest",
+        }
+        expected_data = [
+            {
+                "Program_name": "testigngg",
+                "Program_code": "nationalidtest",
+                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "Type_of_Activity_id": 165,
+                "Mandatory": "01",
+                "Program_ABROVE": "01",
+                "Code": "course-v1:edx+cd101+2020323",
+                "Date_Start": "2030-01-01",
+                "Date_End": None,
+                "Date_Start_Hijri": "1451-08-26",
+                "Date_End_Hijri": None,
+                "duration": 0,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            }
+        ]
+
+        response = self.client.get(self.url, {"national_id": national_id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertListEqual(response.data["results"], expected_data)
+        mock_courses.get_courses.assert_called_once_with(user=user_by_national_id_instance)
+        mock_is_enrolled.assert_called()
+
+    def test_get_programs_list_unauthenticated(self):
+        """
+        Test GET returns 401 for unauthenticated user.
+        Expected behavior:
+            - Status code 401.
+            - Response contains authentication error message.
+        """
+        client = APIClient()
+
+        response = client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("Authentication credentials were not provided", str(response.data))
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    def test_get_programs_list_missing_data(
+        self, mock_get_program_metadata, mock_course_serializer,
+    ):
+        """
+        Test GET returns error if ProgramLookupSerializer is invalid.
+        Expected behavior:
+            - Status code 200.
+            - Response result is alist.
+            - Expected data matches with null values
+        """
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        mock_get_program_metadata.return_value = {}
+        expected_data = [
+            {
+                "Program_name": "testigngg",
+                "Program_code": None,
+                "Type_of_Activity": None,
+                "Type_of_Activity_id": None,
+                "Mandatory": None,
+                "Program_ABROVE": None,
+                "Code": "course-v1:edx+cd101+2020323",
+                "Date_Start": "2030-01-01",
+                "Date_End": None,
+                "Date_Start_Hijri": "1451-08-26",
+                "Date_End_Hijri": None,
+                "duration": 0,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+            {
+                "Program_name": "small-graded",
+                "Program_code": None,
+                "Type_of_Activity": None,
+                "Type_of_Activity_id": None,
+                "Mandatory": None,
+                "Program_ABROVE": None,
+                "Code": "course-v1:edx+cd101+2023-t1",
+                "Date_Start": "2020-01-01",
+                "Date_End": "2034-12-25",
+                "Date_Start_Hijri": "1441-05-06",
+                "Date_End_Hijri": "1456-10-14",
+                "duration": 2,
+                "Training_location": "FutureX",
+                "Trainer_type": 10,
+                "Unit": "hour",
+            },
+        ]
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data["results"], list)
+        self.assertListEqual(expected_data, response.data["results"])
+
+    @patch("eox_nelp.programs.api.v1.views.CourseListView.get_queryset")
+    def test_get_programs_list_not_found_national_id(self, mock_super_get):
+        """
+        Test GET returns empty list if no enrolled courses.
+        Expected behavior:
+            - Status code 404.
+            - Response is an error message.
+        """
+        national_id = "1333888000"
+        mock_super_get.return_value.data = {"results": []}
+
+        response = self.client.get(self.url, {"national_id": national_id})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data,
+            {
+                "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                "message": f"No program found for the provided National ID {national_id}.",
+            }
+        )
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
+    @patch("eox_nelp.programs.api.v1.views.courses")
+    def test_get_programs_list_no_courses_enrolled(
+        self, mock_courses, mock_is_enrolled, _, mock_course_serializer,
+    ):
+        """
+        Test GET returns program list for user with given national_id.
+        Expected behavior:
+            - Status code 400.
+            - The expected data matches with the response.
+            - courses.get_courses mock is called with correct user.
+            - CourseEnrollment.is_enrolled mock is called due national_id filter.
+        """
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        national_id = "1222888000"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=user_by_national_id_instance,
+            arabic_name="مسؤل",
+            national_id=national_id,
+        )
+        serializer_side_effect = []
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        course = MagicMock(id="course-v1:edx+special+2024")
+        mock_courses.get_courses.return_value = [course]
+        mock_is_enrolled.return_value = False
+
+        response = self.client.get(self.url, {"national_id": national_id})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data,
+            {
+                "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                "message": f"No program found for the provided National ID {national_id}.",
+            }
+        )
+        mock_courses.get_courses.assert_called_once_with(user=user_by_national_id_instance)
+        mock_is_enrolled.assert_called()
+
+
+COURSE_API_SERIALIZER_DATA = [
+    {
+        "blocks_url": "http://local/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2020323",
+        "effort": None,
+        "end": None,
+        "enrollment_start": None,
+        "enrollment_end": None,
+        "id": "course-v1:edx+cd101+2020323",
+        "media": {
+            "banner_image": {
+                "uri": "/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "uri_absolute": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+            },
+            "course_image": {"uri": "/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg"},
+            "course_video": {"uri": None},
+            "image": {
+                "raw": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "small": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+                "large": "http://local/asset-v1:edx+cd101+2020323+type@asset+block@images_course_image.jpg",
+            },
+        },
+        "name": "testigngg",
+        "number": "cd101",
+        "org": "edx",
+        "short_description": None,
+        "start": "2030-01-01T00:00:00Z",
+        "start_display": None,
+        "start_type": "empty",
+        "pacing": "instructor",
+        "mobile_available": False,
+        "hidden": False,
+        "invitation_only": False,
+        "course_id": "course-v1:edx+cd101+2020323",
+        "course_about_url": "http://local/courses/course-v1:edx+cd101+2020323/about",
+        "course_home_url": "http://apps.local.overhang.io:2000/learning/course/course-v1:edx+cd101+2020323/home",
+    },
+    {
+        "blocks_url": "http://local/api/courses/v2/blocks/?course_id=course-v1%3Aedx%2Bcd101%2B2023-t1",
+        "effort": "2",
+        "end": "2034-12-25T00:00:00Z",
+        "enrollment_start": "2019-05-31T00:00:00Z",
+        "enrollment_end": None,
+        "id": "course-v1:edx+cd101+2023-t1",
+        "media": {
+            "banner_image": {
+                "uri": "/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "uri_absolute": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+            },
+            "course_image": {"uri": "/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg"},
+            "course_video": {"uri": None},
+            "image": {
+                "raw": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "small": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+                "large": "http://local/asset-v1:edx+cd101+2023-t1+type@asset+block@images_course_image.jpg",
+            },
+        },
+        "name": "small-graded",
+        "number": "cd101",
+        "org": "edx",
+        "short_description": "",
+        "start": "2020-01-01T00:00:00Z",
+        "start_display": "Jan. 1, 2020",
+        "start_type": "timestamp",
+        "pacing": "self",
+        "mobile_available": False,
+        "hidden": False,
+        "invitation_only": False,
+        "course_id": "course-v1:edx+cd101+2023-t1",
+    },
+]
