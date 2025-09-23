@@ -469,10 +469,10 @@ class ProgramsListViewTestCase(APITestCase):
             - courses.get_courses mock is called with correct user.
             - CourseEnrollment.is_enrolled mock is called due national_id filter.
         """
-        national_id_user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
         national_id = "1222888000"
         ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
-            user=national_id_user_instance,
+            user=user_by_national_id_instance,
             arabic_name="مسؤل",
             national_id=national_id,
         )
@@ -516,7 +516,7 @@ class ProgramsListViewTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertListEqual(response.data["results"], expected_data)
-        mock_courses.get_courses.assert_called_once_with(user=national_id_user_instance)
+        mock_courses.get_courses.assert_called_once_with(user=user_by_national_id_instance)
         mock_is_enrolled.assert_called()
 
     def test_get_programs_list_unauthenticated(self):
@@ -632,10 +632,10 @@ class ProgramsListViewTestCase(APITestCase):
             - courses.get_courses mock is called with correct user.
             - CourseEnrollment.is_enrolled mock is called due national_id filter.
         """
-        national_id_user_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user2", password="pass2")
         national_id = "1222888000"
         ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
-            user=national_id_user_instance,
+            user=user_by_national_id_instance,
             arabic_name="مسؤل",
             national_id=national_id,
         )
@@ -659,7 +659,7 @@ class ProgramsListViewTestCase(APITestCase):
                 "message": f"No program found for the provided National ID {national_id}.",
             }
         )
-        mock_courses.get_courses.assert_called_once_with(user=national_id_user_instance)
+        mock_courses.get_courses.assert_called_once_with(user=user_by_national_id_instance)
         mock_is_enrolled.assert_called()
 
 

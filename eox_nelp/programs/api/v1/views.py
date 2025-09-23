@@ -49,7 +49,7 @@ def require_feature_enabled(feature_name):
 def process_national_id_query_param():
     """Decorator to check if national_id query parameter is valid if provided.
     If not provided, the view will proceed without filtering by national_id.
-    Using the request user if not provided. Added to the request object the national_id_user attribute.
+    Using the request user if not provided. Added to the request object the user_by_national_id attribute.
     Returns  422 if invalid.
     """
     def decorator(func):
@@ -64,7 +64,7 @@ def process_national_id_query_param():
                         },
                         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     )
-                setattr(request, 'national_id_user', get_object_or_404(User, extrainfo__national_id=national_id))
+                setattr(request, 'user_by_national_id', get_object_or_404(User, extrainfo__national_id=national_id))
             return func(self, request, *args, **kwargs)
 
         return wrapper
@@ -191,8 +191,8 @@ class ProgramsListView(CourseListView):
             lazy sequence as used in
             https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
         """
-        if getattr(self.request, 'national_id_user', None):
-            visible_courses_queryset = courses.get_courses(user=self.request.national_id_user)
+        if getattr(self.request, 'user_by_national_id', None):
+            visible_courses_queryset = courses.get_courses(user=self.request.user_by_national_id)
         else:
             visible_courses_queryset = super().get_queryset()
         program_queryset = []
@@ -209,10 +209,10 @@ class ProgramsListView(CourseListView):
         Returns:
         List of enrolled courses for the user qs
         """
-        if getattr(self.request, 'national_id_user', None):
+        if getattr(self.request, 'user_by_national_id', None):
             queryset = [
                 program_data for program_data in queryset if CourseEnrollment.is_enrolled(
-                    self.request.national_id_user,
+                    self.request.user_by_national_id,
                     program_data["Code"],
                 )
             ]
