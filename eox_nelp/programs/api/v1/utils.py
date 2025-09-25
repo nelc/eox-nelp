@@ -129,9 +129,7 @@ def hms_to_int(time_str):
                 minutes = 0  # Reset invalid minutes to 0
 
             return round(hours + (minutes / 60))
-        else:
-            return int(time_str)
+        return int(time_str)
     except ValueError as e:
         logger.warning("Error converting time string: %s", e)
         return None
-            

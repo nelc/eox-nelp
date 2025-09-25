@@ -3,7 +3,7 @@ Unit tests for programs API v1 utils.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from eox_nelp.programs.api.v1 import utils
 
