@@ -77,7 +77,7 @@ def get_program_lookup_representation(course_api_data):
         "Type_of_Activity": TYPES_OF_ACTIVITY_MAPPING.get(program_metadata.get("Type_of_Activity", -1)),
         "Type_of_Activity_id": program_metadata.get("Type_of_Activity"),
         "Unit": "hour",
-        "duration": int(course_api_data.get("effort") or 0),
+        "duration": hms_to_int(course_api_data.get("effort")) or 0,
         "Mandatory": program_metadata.get("Mandatory"),
         "Program_ABROVE": program_metadata.get("Program_ABROVE"),
         "Code": course_api_data["course_id"],
@@ -104,4 +104,32 @@ def convert_to_isoformat(date_string):
         return dt_object.date().isoformat()
     except ValueError as e:
         logger.error("Error parsing date string: %s", e)
+        return None
+
+
+def hms_to_int(time_str):
+    """
+    Converts a time string to an integer representing total hours,
+    rounding to the nearest whole number. Handles both "HH:MM" and "HH" formats.
+
+    Args:
+        time_str: The time string (e.g., "2:30" or "2").
+
+    Returns:
+        An integer representing the total hours, rounded to the nearest whole number.
+        or None if input is invalid and there is some error.
+    """
+    if not time_str:
+        return None
+    try:
+        if ":" in time_str:
+            hours, minutes = map(int, time_str.split(":"))
+
+            if minutes < 0 or minutes >= 60:
+                minutes = 0  # Reset invalid minutes to 0
+
+            return round(hours + (minutes / 60))
+        return int(time_str)
+    except ValueError as e:
+        logger.warning("Error converting time string: %s", e)
         return None
