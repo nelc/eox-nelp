@@ -173,7 +173,9 @@ class ProgramsListView(CourseListView):
         """
         response = super().finalize_response(request, response, *args, **kwargs)
         if national_id := self.request.query_params.get("national_id"):
-            if response.status_code == status.HTTP_404_NOT_FOUND or not response.data["results"]:
+            if response.status_code == status.HTTP_404_NOT_FOUND or (
+                response.status_code == status.HTTP_200_OK and not response.data.get("results")
+            ):
                 response.data = {
                     "error": "NO_PROGRAM_FOR_NATIONAL_ID",
                     "message": f"No program found for the provided National ID {national_id}."

@@ -533,6 +533,20 @@ class ProgramsListViewTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Authentication credentials were not provided", str(response.data))
 
+    def test_get_programs_list_unauthenticated_national_id(self):
+        """
+        Test GET returns 401 for unauthenticated user.
+        Expected behavior:
+            - Status code 401.
+            - Response contains authentication error message.
+        """
+        client = APIClient()
+
+        response = client.get(self.url, {"national_id": "1234567890"})
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("Authentication credentials were not provided", str(response.data))
+
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     def test_get_programs_list_missing_data(
