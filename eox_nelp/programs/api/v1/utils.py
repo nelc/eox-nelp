@@ -10,6 +10,7 @@ from datetime import datetime
 from hijridate import Gregorian
 from opaque_keys.edx.keys import CourseKey
 
+from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
 
@@ -52,7 +53,7 @@ def update_program_metadata(course_id, program_data, user):
     store.update_item(course_block, user.id)
 
 
-def get_program_lookup_representation(course_api_data):
+def get_program_lookup_representation(user, course_api_data):
     """
     Generate a lookup representation for program metadata.
 
@@ -81,6 +82,7 @@ def get_program_lookup_representation(course_api_data):
         "mandatory": program_metadata.get("mandatory"),
         "program_approve": program_metadata.get("program_approve"),
         "code": course_api_data["course_id"],
+        "certificate_path": get_user_lms_certificate_path(user, course_api_data["course_id"]),
     }
     return program_lookup_representation
 
@@ -133,3 +135,18 @@ def hms_to_int(time_str):
     except ValueError as e:
         logger.warning("Error converting time string: %s", e)
         return None
+
+
+def get_user_lms_certificate_path(user, course_id):
+    """
+    Retrieve the path of a user's certificate for a specific course.
+
+    Args:
+        user: User object
+        course_id: Course identifier
+    """
+    cert_status = certificates_utils.certificate_status_for_student(user, course_id)
+    lms_certificate_path = certificates_utils._certificate_html_url(  # pylint: disable=protected-access
+        uuid=cert_status["uuid"],
+    )
+    return lms_certificate_path

@@ -13,3 +13,4 @@ backend = import_module(settings.EOX_NELP_CERTIFICATES_BACKEND)
 
 GeneratedCertificateAdmin = backend.get_generated_certificates_admin()
 generate_course_certificate = backend.get_generate_course_certificate_method()
+utils = backend.get_certificates_utils()

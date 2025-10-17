@@ -79,10 +79,18 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
     """Test cases for get_program_lookup_representation."""
 
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
     @patch("eox_nelp.programs.api.v1.utils.convert_to_isoformat")
     @patch("eox_nelp.programs.api.v1.utils.hms_to_int")
     @patch("eox_nelp.programs.api.v1.utils.Gregorian")
-    def test_get_program_lookup_representation(self, mock_gregorian, mock_hms_to_int, mock_convert, mock_get_metadata):
+    def test_get_program_lookup_representation(
+        self,
+        mock_gregorian,
+        mock_hms_to_int,
+        mock_convert,
+        mock_get_user_lms_certificate_path,
+        mock_get_metadata,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
         """
         Test generating program lookup representation.
         Expected behavior:
@@ -94,6 +102,7 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             "mandatory": "01",
             "program_approve": "00",
         }
+        mock_get_user_lms_certificate_path.return_value = "/certificates/abc-123"
         mock_convert.side_effect = lambda x: x
         mock_hms_to_int.return_value = 5
         mock_gregorian.fromisoformat.return_value.to_hijri.return_value.isoformat.return_value = "1440-01-01"
@@ -104,6 +113,7 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             "end": "2020-12-31T00:00:00Z",
             "effort": "5:00",
         }
+        user = MagicMock(id=123)
         expected_data = {
             "program_name": "Test Course",
             "program_code": "CODE",
@@ -120,8 +130,10 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             "mandatory": "01",
             "program_approve": "00",
             "code": "course-v1:edx+test+2024",
+            "certificate_path": "/certificates/abc-123",
         }
-        result = utils.get_program_lookup_representation(course_api_data)
+
+        result = utils.get_program_lookup_representation(user, course_api_data)
 
         self.assertDictEqual(result, expected_data)
 
@@ -203,3 +215,26 @@ class HmsToIntTestCase(unittest.TestCase):
         """
         self.assertEqual(utils.hms_to_int("2:99"), 2)
         self.assertEqual(utils.hms_to_int("2:-5"), 2)
+
+    class GetUserLmsCertificatePathTestCase(unittest.TestCase):
+        """Test cases for get_user_lms_certificate_path."""
+
+        @patch("eox_nelp.programs.api.v1.utils.certificates_utils._certificate_html_url")
+        @patch("eox_nelp.programs.api.v1.utils.certificates_utils.certificate_status_for_student")
+        def test_returns_certificate_path(self, mock_cert_status, mock_cert_url):
+            """
+            Test that the function returns the correct certificate path.
+            Expected behavior:
+                - Returns the LMS certificate path for the user and course.
+                - Calls certificate_status_for_student and _certificate_html_url with correct parameters.
+            """
+            user = MagicMock()
+            course_id = "course-v1:edx+test+2024"
+            mock_cert_status.return_value = {"uuid": "abc-123"}
+            mock_cert_url.return_value = "/certificates/abc-123"
+
+            result = utils.get_user_lms_certificate_path(user, course_id)
+
+            mock_cert_status.assert_called_once_with(user, course_id)
+            mock_cert_url.assert_called_once_with(uuid="abc-123")
+            self.assertEqual(result, "/certificates/abc-123")

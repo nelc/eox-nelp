@@ -204,7 +204,7 @@ class ProgramsListView(CourseListView):
         program_queryset = []
         for course in visible_courses_queryset:
             course_data = CourseDetailSerializer(course, context={'request': self.request}).data
-            program_lookup = get_program_lookup_representation(course_data)
+            program_lookup = get_program_lookup_representation(self.request.user_by_national_id, course_data)
             if CourseEnrollment.is_enrolled(self.request.user_by_national_id, program_lookup["code"]):
                 program_queryset.append(program_lookup)
 
@@ -216,11 +216,8 @@ class ProgramsListView(CourseListView):
         Returns:
             QuerySet: filtered queryset
         """
-        if self.request.query_params.get("is_enrolled", "true") == "true":
+        if self.request.query_params.get("certificated_only") == "true":
             queryset = [
-                program_data for program_data in queryset if CourseEnrollment.is_enrolled(
-                    self.request.user_by_national_id,
-                    program_data["code"],
-                )
+                program_data for program_data in queryset if program_data.get("certificate_path")
             ]
         return queryset
