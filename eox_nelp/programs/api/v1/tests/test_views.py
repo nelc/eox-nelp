@@ -38,10 +38,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         mock_metadata = {
             "trainer_type": 10,
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
@@ -104,10 +104,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         metadata_data = {
             "trainer_type": 10,
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
@@ -119,19 +119,19 @@ class ProgramsMetadataViewTestCase(TestCase):
             # The response includes trainer_type as read-only field
             expected_data = {
                 "trainer_type": 10,
-                "Type_of_Activity": 1,
-                "Mandatory": "01",
-                "Program_ABROVE": "01",
-                "Program_code": "TEST001",
+                "type_of_activity": 1,
+                "mandatory": "01",
+                "program_approve": "01",
+                "program_code": "TEST001",
             }
             self.assertEqual(response.data, expected_data)
             # trainer_type is read-only, so it's not included in validated_data
             expected_data = {
                 "trainer_type": 10,
-                "Type_of_Activity": 1,
-                "Mandatory": "01",
-                "Program_ABROVE": "01",
-                "Program_code": "TEST001",
+                "type_of_activity": 1,
+                "mandatory": "01",
+                "program_approve": "01",
+                "program_code": "TEST001",
             }
             mock_update.assert_called_once_with(self.course_id, expected_data, self.user)
 
@@ -144,10 +144,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         invalid_data = {
             "trainer_type": 10,
-            "Type_of_Activity": 1,
-            "Mandatory": "invalid",  # Invalid value - too long
-            "Program_ABROVE": "01",
-            "Program_code": "",  # Empty value
+            "type_of_activity": 1,
+            "mandatory": "invalid",  # Invalid value - too long
+            "program_approve": "01",
+            "program_code": "",  # Empty value
         }
 
         response = self.client.post(self.url, invalid_data)
@@ -165,10 +165,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         self.client.force_authenticate(user=None)
         metadata_data = {
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         response = self.client.post(self.url, metadata_data)
@@ -185,10 +185,10 @@ class ProgramsMetadataViewTestCase(TestCase):
             - Return feature not implemented error.
         """
         metadata_data = {
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         response = self.client.post(self.url, metadata_data)
@@ -204,10 +204,10 @@ class ProgramsMetadataViewTestCase(TestCase):
             - Return validation error details.
         """
         invalid_data = {
-            "Type_of_Activity": "not_a_number",  # Invalid type
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": "not_a_number",  # Invalid type
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         response = self.client.post(self.url, invalid_data)
@@ -224,10 +224,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         invalid_metadata = {
             "trainer_type": 10,
-            "Type_of_Activity": 1,
-            "Mandatory": "invalid",  # Invalid value - too long
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "invalid",  # Invalid value - too long
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
@@ -247,10 +247,10 @@ class ProgramsMetadataViewTestCase(TestCase):
         """
         valid_metadata = {
             "trainer_type": 10,
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "TEST001",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "TEST001",
         }
 
         with patch("eox_nelp.programs.api.v1.views.get_program_metadata") as mock_get:
@@ -259,14 +259,14 @@ class ProgramsMetadataViewTestCase(TestCase):
             response = self.client.get(self.url)
 
             if response.status_code == status.HTTP_200_OK:
-                expected_fields = ["trainer_type", "Type_of_Activity", "Mandatory", "Program_ABROVE", "Program_code"]
+                expected_fields = ["trainer_type", "type_of_activity", "mandatory", "program_approve", "program_code"]
 
                 for field in expected_fields:
                     self.assertIn(field, response.data, f"Field '{field}' missing from response")
 
     def test_program_metadata_mandatory_field_validation(self):
         """
-        Test validation of Mandatory field values.
+        Test validation of mandatory field values.
         Expected behavior:
             - Only "01" and "00" are accepted.
             - Other values return validation error.
@@ -275,18 +275,18 @@ class ProgramsMetadataViewTestCase(TestCase):
             ("01", True, None),
             ("00", True, None),
             ("invalid", False, "Ensure this field has no more than 2 characters"),
-            ("1", False, "Mandatory must be one of: 01, 00"),
-            ("0", False, "Mandatory must be one of: 01, 00"),
+            ("1", False, "mandatory must be one of: 01, 00"),
+            ("0", False, "mandatory must be one of: 01, 00"),
         ]
 
         for value, should_pass, expected_error in test_cases:
             with self.subTest(value=value):
                 metadata_data = {
                     "trainer_type": 10,
-                    "Type_of_Activity": 1,
-                    "Mandatory": value,
-                    "Program_ABROVE": "01",
-                    "Program_code": "TEST001",
+                    "type_of_activity": 1,
+                    "mandatory": value,
+                    "program_approve": "01",
+                    "program_code": "TEST001",
                 }
 
                 with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
@@ -302,7 +302,7 @@ class ProgramsMetadataViewTestCase(TestCase):
 
     def test_program_metadata_program_abrove_field_validation(self):
         """
-        Test validation of Program_ABROVE field values.
+        Test validation of program_approve field values.
         Expected behavior:
             - Only "01" and "00" are accepted.
             - Other values return validation error.
@@ -311,18 +311,18 @@ class ProgramsMetadataViewTestCase(TestCase):
             ("01", True, None),
             ("00", True, None),
             ("invalid", False, "Ensure this field has no more than 2 characters"),
-            ("1", False, "Program_ABROVE must be one of: 01, 00"),
-            ("0", False, "Program_ABROVE must be one of: 01, 00"),
+            ("1", False, "program_approve must be one of: 01, 00"),
+            ("0", False, "program_approve must be one of: 01, 00"),
         ]
 
         for value, should_pass, expected_error in test_cases:
             with self.subTest(value=value):
                 metadata_data = {
                     "trainer_type": 10,
-                    "Type_of_Activity": 1,
-                    "Mandatory": "01",
-                    "Program_ABROVE": value,
-                    "Program_code": "TEST001",
+                    "type_of_activity": 1,
+                    "mandatory": "01",
+                    "program_approve": value,
+                    "program_code": "TEST001",
                 }
 
                 with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
@@ -338,7 +338,7 @@ class ProgramsMetadataViewTestCase(TestCase):
 
     def test_program_metadata_program_code_validation(self):
         """
-        Test validation of Program_code field.
+        Test validation of program_code field.
         Expected behavior:
             - Empty or whitespace-only values are rejected.
             - Valid values are accepted.
@@ -355,10 +355,10 @@ class ProgramsMetadataViewTestCase(TestCase):
             with self.subTest(value=value):
                 metadata_data = {
                     "trainer_type": 10,
-                    "Type_of_Activity": 1,
-                    "Mandatory": "01",
-                    "Program_ABROVE": "01",
-                    "Program_code": value,
+                    "type_of_activity": 1,
+                    "mandatory": "01",
+                    "program_approve": "01",
+                    "program_code": value,
                 }
 
                 with patch("eox_nelp.programs.api.v1.views.update_program_metadata") as mock_update:
@@ -407,45 +407,45 @@ class ProgramsListViewTestCase(APITestCase):
         mock_course_serializer.side_effect = serializer_side_effect
         mock_get_program_metadata.return_value = {
             "trainer_type": 10,
-            "Type_of_Activity": 165,
-            "Mandatory": "01",
-            "Program_ABROVE": "00",
-            "Program_code": "eltesst",
+            "type_of_activity": 165,
+            "mandatory": "01",
+            "program_approve": "00",
+            "program_code": "eltesst",
         }
         expected_data = [
             {
-                "Program_name": "testigngg",
-                "Program_code": "eltesst",
-                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
-                "Type_of_Activity_id": 165,
-                "Mandatory": "01",
-                "Program_ABROVE": "00",
-                "Code": "course-v1:edx+cd101+2020323",
-                "Date_Start": "2030-01-01",
-                "Date_End": None,
-                "Date_Start_Hijri": '1451-08-26',
-                "Date_End_Hijri": None,
+                "program_name": "testigngg",
+                "program_code": "eltesst",
+                "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "type_of_activity_id": 165,
+                "mandatory": "01",
+                "program_approve": "00",
+                "code": "course-v1:edx+cd101+2020323",
+                "data_start": "2030-01-01",
+                "date_end": None,
+                "data_start_hijri": '1451-08-26',
+                "date_end_hijri": None,
                 "duration": 1,
-                "Training_location": "FutureX",
-                "Trainer_type": 10,
-                "Unit": "hour",
+                "training_location": "FutureX",
+                "trainer_type": 10,
+                "unit": "hour",
             },
             {
-                "Program_name": "small-graded",
-                "Program_code": "eltesst",
-                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
-                "Type_of_Activity_id": 165,
-                "Mandatory": "01",
-                "Program_ABROVE": "00",
-                "Code": "course-v1:edx+cd101+2023-t1",
-                "Date_Start": "2020-01-01",
-                "Date_End": "2034-12-25",
-                "Date_Start_Hijri": "1441-05-06",
-                "Date_End_Hijri": "1456-10-14",
+                "program_name": "small-graded",
+                "program_code": "eltesst",
+                "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "type_of_activity_id": 165,
+                "mandatory": "01",
+                "program_approve": "00",
+                "code": "course-v1:edx+cd101+2023-t1",
+                "data_start": "2020-01-01",
+                "date_end": "2034-12-25",
+                "data_start_hijri": "1441-05-06",
+                "date_end_hijri": "1456-10-14",
                 "duration": 2,
-                "Training_location": "FutureX",
-                "Trainer_type": 10,
-                "Unit": "hour",
+                "training_location": "FutureX",
+                "trainer_type": 10,
+                "unit": "hour",
             },
         ]
 
@@ -487,28 +487,28 @@ class ProgramsListViewTestCase(APITestCase):
         mock_is_enrolled.return_value = True
         mock_get_program_metadata.return_value = {
             "trainer_type": 10,
-            "Type_of_Activity": 165,
-            "Mandatory": "01",
-            "Program_ABROVE": "01",
-            "Program_code": "nationalidtest",
+            "type_of_activity": 165,
+            "mandatory": "01",
+            "program_approve": "01",
+            "program_code": "nationalidtest",
         }
         expected_data = [
             {
-                "Program_name": "testigngg",
-                "Program_code": "nationalidtest",
-                "Type_of_Activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
-                "Type_of_Activity_id": 165,
-                "Mandatory": "01",
-                "Program_ABROVE": "01",
-                "Code": "course-v1:edx+cd101+2020323",
-                "Date_Start": "2030-01-01",
-                "Date_End": None,
-                "Date_Start_Hijri": "1451-08-26",
-                "Date_End_Hijri": None,
+                "program_name": "testigngg",
+                "program_code": "nationalidtest",
+                "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                "type_of_activity_id": 165,
+                "mandatory": "01",
+                "program_approve": "01",
+                "code": "course-v1:edx+cd101+2020323",
+                "data_start": "2030-01-01",
+                "date_end": None,
+                "data_start_hijri": "1451-08-26",
+                "date_end_hijri": None,
                 "duration": 1,
-                "Training_location": "FutureX",
-                "Trainer_type": 10,
-                "Unit": "hour",
+                "training_location": "FutureX",
+                "trainer_type": 10,
+                "unit": "hour",
             }
         ]
 
@@ -568,38 +568,38 @@ class ProgramsListViewTestCase(APITestCase):
         mock_get_program_metadata.return_value = {}
         expected_data = [
             {
-                "Program_name": "testigngg",
-                "Program_code": None,
-                "Type_of_Activity": None,
-                "Type_of_Activity_id": None,
-                "Mandatory": None,
-                "Program_ABROVE": None,
-                "Code": "course-v1:edx+cd101+2020323",
-                "Date_Start": "2030-01-01",
-                "Date_End": None,
-                "Date_Start_Hijri": "1451-08-26",
-                "Date_End_Hijri": None,
+                "program_name": "testigngg",
+                "program_code": None,
+                "type_of_activity": None,
+                "type_of_activity_id": None,
+                "mandatory": None,
+                "program_approve": None,
+                "code": "course-v1:edx+cd101+2020323",
+                "data_start": "2030-01-01",
+                "date_end": None,
+                "data_start_hijri": "1451-08-26",
+                "date_end_hijri": None,
                 "duration": 1,
-                "Training_location": "FutureX",
-                "Trainer_type": 10,
-                "Unit": "hour",
+                "training_location": "FutureX",
+                "trainer_type": 10,
+                "unit": "hour",
             },
             {
-                "Program_name": "small-graded",
-                "Program_code": None,
-                "Type_of_Activity": None,
-                "Type_of_Activity_id": None,
-                "Mandatory": None,
-                "Program_ABROVE": None,
-                "Code": "course-v1:edx+cd101+2023-t1",
-                "Date_Start": "2020-01-01",
-                "Date_End": "2034-12-25",
-                "Date_Start_Hijri": "1441-05-06",
-                "Date_End_Hijri": "1456-10-14",
+                "program_name": "small-graded",
+                "program_code": None,
+                "type_of_activity": None,
+                "type_of_activity_id": None,
+                "mandatory": None,
+                "program_approve": None,
+                "code": "course-v1:edx+cd101+2023-t1",
+                "data_start": "2020-01-01",
+                "date_end": "2034-12-25",
+                "data_start_hijri": "1441-05-06",
+                "date_end_hijri": "1456-10-14",
                 "duration": 2,
-                "Training_location": "FutureX",
-                "Trainer_type": 10,
-                "Unit": "hour",
+                "training_location": "FutureX",
+                "trainer_type": 10,
+                "unit": "hour",
             },
         ]
 

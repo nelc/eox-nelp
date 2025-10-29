@@ -1,6 +1,6 @@
 """Programs API v1 constants."""
 
-# Mapping of Type_of_Activity IDs to their descriptions in Arabic
+# Mapping of type_of_activity IDs to their descriptions in Arabic
 TYPES_OF_ACTIVITY_MAPPING = {
     135: "التدريب - التدريب المباشر",
     155: "التدريب - التدريب الإلكتروني",

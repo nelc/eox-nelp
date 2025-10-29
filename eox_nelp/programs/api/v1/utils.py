@@ -66,21 +66,21 @@ def get_program_lookup_representation(course_api_data):
     data_start_iso = convert_to_isoformat(course_api_data.get("start"))
     data_end_iso = convert_to_isoformat(course_api_data.get("end"))
     program_lookup_representation = {
-        "Program_name": course_api_data.get("name"),
-        "Program_code": program_metadata.get("Program_code"),
-        "Training_location": "FutureX",
-        "Date_Start": data_start_iso,
-        "Date_Start_Hijri": Gregorian.fromisoformat(data_start_iso).to_hijri().isoformat() if data_start_iso else None,
-        "Date_End": data_end_iso,
-        "Date_End_Hijri": Gregorian.fromisoformat(data_end_iso).to_hijri().isoformat() if data_end_iso else None,
-        "Trainer_type": 10,
-        "Type_of_Activity": TYPES_OF_ACTIVITY_MAPPING.get(program_metadata.get("Type_of_Activity", -1)),
-        "Type_of_Activity_id": program_metadata.get("Type_of_Activity"),
-        "Unit": "hour",
+        "program_name": course_api_data.get("name"),
+        "program_code": program_metadata.get("program_code"),
+        "training_location": "FutureX",
+        "data_start": data_start_iso,
+        "data_start_hijri": Gregorian.fromisoformat(data_start_iso).to_hijri().isoformat() if data_start_iso else None,
+        "date_end": data_end_iso,
+        "date_end_hijri": Gregorian.fromisoformat(data_end_iso).to_hijri().isoformat() if data_end_iso else None,
+        "trainer_type": 10,
+        "type_of_activity": TYPES_OF_ACTIVITY_MAPPING.get(program_metadata.get("type_of_activity", -1)),
+        "type_of_activity_id": program_metadata.get("type_of_activity"),
+        "unit": "hour",
         "duration": hms_to_int(course_api_data.get("effort")) or 0,
-        "Mandatory": program_metadata.get("Mandatory"),
-        "Program_ABROVE": program_metadata.get("Program_ABROVE"),
-        "Code": course_api_data["course_id"],
+        "mandatory": program_metadata.get("mandatory"),
+        "program_approve": program_metadata.get("program_approve"),
+        "code": course_api_data["course_id"],
     }
     return program_lookup_representation
 

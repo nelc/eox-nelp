@@ -90,10 +90,10 @@ class ProgramsMetadataView(APIView):
     **Response Values**
         Returns program metadata including:
         - trainer_type: Trainer type (integer, default 10)
-        - Type_of_Activity: Activity type code (integer)
-        - Mandatory: Mandatory flag ("01" or "00")
-        - Program_ABROVE: Program approval flag ("01" or "00")
-        - Program_code: Program code (string, max 64 characters)
+        - type_of_activity: Activity type code (integer)
+        - mandatory: mandatory flag ("01" or "00")
+        - program_approve: Program approval flag ("01" or "00")
+        - program_code: Program code (string, max 64 characters)
 
     **Returns**
         * 200 on success with program metadata
@@ -215,7 +215,7 @@ class ProgramsListView(CourseListView):
             queryset = [
                 program_data for program_data in queryset if CourseEnrollment.is_enrolled(
                     self.request.user_by_national_id,
-                    program_data["Code"],
+                    program_data["code"],
                 )
             ]
         return queryset

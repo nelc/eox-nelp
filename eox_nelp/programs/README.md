@@ -10,10 +10,10 @@ This module provides API endpoints for managing program metadata in the eox-nelp
  ```json
 {
     "trainer_type": 10,
-    "Type_of_Activity": 155,
-    "Mandatory": "01",
-    "Program_ABROVE": "00",
-    "Program_code": "FX-TEACHER-101"
+    "type_of_activity": 155,
+    "mandatory": "01",
+    "program_approve": "00",
+    "program_code": "FX-TEACHER-101"
 }
 ```
 
@@ -31,14 +31,14 @@ Retrieves metadata for a specific course program.
 ```json
 {
     "trainer_type": 10,
-    "Type_of_Activity": 155,
-    "Mandatory": "01",
-    "Program_ABROVE": "00",
-    "Program_code": "FX-TEACHER-101"
+    "type_of_activity": 155,
+    "mandatory": "01",
+    "program_approve": "00",
+    "program_code": "FX-TEACHER-101"
 }
 ```
 
-#### Status Codes
+#### Status codes
 - `200 OK`: Successfully retrieved program metadata
 - `400 Bad Request`: Invalid course ID format
 - `401 Unauthorized`: Authentication required
@@ -67,14 +67,14 @@ Creates or updates program metadata for a specific course.
 ```json
 {
     "trainer_type": 10,
-    "Type_of_Activity": 155,
-    "Mandatory": "01",
-    "Program_ABROVE": "00",
-    "Program_code": "FX-TEACHER-101"
+    "type_of_activity": 155,
+    "mandatory": "01",
+    "program_approve": "00",
+    "program_code": "FX-TEACHER-101"
 }
 ```
 
-#### Status Codes
+#### Status codes
 - `201 Created`: Successfully created/updated program metadata
 - `400 Bad Request`: Invalid data or course ID format
 - `401 Unauthorized`: Authentication required
