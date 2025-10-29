@@ -89,10 +89,10 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             - Returns a dict with all expected fields.
         """
         mock_get_metadata.return_value = {
-            "Program_code": "CODE",
-            "Type_of_Activity": 1,
-            "Mandatory": "01",
-            "Program_ABROVE": "00",
+            "program_code": "CODE",
+            "type_of_activity": 1,
+            "mandatory": "01",
+            "program_approve": "00",
         }
         mock_convert.side_effect = lambda x: x
         mock_hms_to_int.return_value = 5
@@ -105,21 +105,21 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             "effort": "5:00",
         }
         expected_data = {
-            "Program_name": "Test Course",
-            "Program_code": "CODE",
-            "Training_location": "FutureX",
-            "Date_Start": "2020-01-01T00:00:00Z",
-            "Date_Start_Hijri": "1440-01-01",
-            "Date_End": "2020-12-31T00:00:00Z",
-            "Date_End_Hijri": "1440-01-01",
-            "Trainer_type": 10,
-            "Type_of_Activity": None,
-            "Type_of_Activity_id": 1,
-            "Unit": "hour",
+            "program_name": "Test Course",
+            "program_code": "CODE",
+            "training_location": "FutureX",
+            "date_start": "2020-01-01T00:00:00Z",
+            "date_start_hijri": "1440-01-01",
+            "date_end": "2020-12-31T00:00:00Z",
+            "date_end_hijri": "1440-01-01",
+            "trainer_type": 10,
+            "type_of_activity": None,
+            "type_of_activity_id": 1,
+            "unit": "hour",
             "duration": 5,
-            "Mandatory": "01",
-            "Program_ABROVE": "00",
-            "Code": "course-v1:edx+test+2024",
+            "mandatory": "01",
+            "program_approve": "00",
+            "code": "course-v1:edx+test+2024",
         }
         result = utils.get_program_lookup_representation(course_api_data)
 

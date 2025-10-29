@@ -4,25 +4,24 @@ from rest_framework import serializers
 
 class ProgramValidationMixin:
     """Mixin to add common validation methods for program serializers."""
-    # pylint: disable=invalid-name
-    def validate_Mandatory(self, value):
-        """Validate Mandatory field."""
+    def validate_mandatory(self, value):
+        """Validate mandatory field."""
         valid_values = ["01", "00"]
         if value not in valid_values:
-            raise serializers.ValidationError(f"Mandatory must be one of: {', '.join(valid_values)}")
+            raise serializers.ValidationError(f"mandatory must be one of: {', '.join(valid_values)}")
         return value
 
-    def validate_Program_ABROVE(self, value):
-        """Validate Program_ABROVE field."""
+    def validate_program_approve(self, value):
+        """Validate program_approve field."""
         valid_values = ["01", "00"]
         if value not in valid_values:
-            raise serializers.ValidationError(f"Program_ABROVE must be one of: {', '.join(valid_values)}")
+            raise serializers.ValidationError(f"program_approve must be one of: {', '.join(valid_values)}")
         return value
 
-    def validate_Program_code(self, value):
-        """Validate Program_code field."""
+    def validate_program_code(self, value):
+        """Validate program_code field."""
         if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("Program_code cannot be empty")
+            raise serializers.ValidationError("program_code cannot be empty")
         return value.strip()
 
 
@@ -32,12 +31,11 @@ class ProgramsMetadataSerializer(serializers.Serializer, ProgramValidationMixin)
 
     This serializer handles the metadata for a specific course program.
     """
-    # This is for use DRF logic of validation, but the fields or the API are very rare in shape.
     trainer_type = serializers.IntegerField(default=10, read_only=True)
-    Type_of_Activity = serializers.IntegerField()
-    Mandatory = serializers.CharField(max_length=2)
-    Program_ABROVE = serializers.CharField(max_length=2)
-    Program_code = serializers.CharField(max_length=64)
+    type_of_activity = serializers.IntegerField()
+    mandatory = serializers.CharField(max_length=2)
+    program_approve = serializers.CharField(max_length=2)
+    program_code = serializers.CharField(max_length=64)
 
 
 class ProgramLookupSerializer(serializers.Serializer, ProgramValidationMixin):  # pylint: disable=abstract-method
@@ -47,22 +45,22 @@ class ProgramLookupSerializer(serializers.Serializer, ProgramValidationMixin):  
     provided in the user's data object.
     """
     # Direct field mappings
-    Program_name = serializers.CharField(required=True)
-    Program_code = serializers.CharField(required=True)
-    Type_of_Activity = serializers.CharField(required=True)
-    Type_of_Activity_id = serializers.IntegerField(required=True)
-    Mandatory = serializers.CharField(required=True)
-    Program_ABROVE = serializers.CharField(required=True)
-    Code = serializers.CharField(required=True)
+    program_name = serializers.CharField(required=True)
+    program_code = serializers.CharField(required=True)
+    type_of_activity = serializers.CharField(required=True)
+    type_of_activity_id = serializers.IntegerField(required=True)
+    mandatory = serializers.CharField(required=True)
+    program_approve = serializers.CharField(required=True)
+    code = serializers.CharField(required=True)
 
     # Mapped fields to match the provided data
-    Date_Start = serializers.CharField(required=True)
-    Date_End = serializers.CharField(required=True, allow_null=True)
-    Date_Start_Hijri = serializers.CharField(required=True)
-    Date_End_Hijri = serializers.CharField(required=True, allow_null=True)
+    date_start = serializers.CharField(required=True)
+    date_end = serializers.CharField(required=True, allow_null=True)
+    date_start_hijri = serializers.CharField(required=True)
+    date_end_hijri = serializers.CharField(required=True, allow_null=True)
     duration = serializers.IntegerField(required=False)
 
     # Fields with fixed values, using read_only and default
-    Training_location = serializers.CharField(read_only=True, default="FutureX")
-    Trainer_type = serializers.IntegerField(read_only=True, default=10)
-    Unit = serializers.CharField(read_only=True, default="hour")
+    training_location = serializers.CharField(read_only=True, default="FutureX")
+    trainer_type = serializers.IntegerField(read_only=True, default=10)
+    unit = serializers.CharField(read_only=True, default="hour")
