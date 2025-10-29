@@ -216,8 +216,6 @@ class ProgramsListView(CourseListView):
         Returns:
             QuerySet: filtered queryset
         """
-<<<<<<< HEAD
-=======
         if self.request.query_params.get("is_enrolled", "true") == "true":
             queryset = [
                 program_data for program_data in queryset if CourseEnrollment.is_enrolled(
@@ -225,5 +223,4 @@ class ProgramsListView(CourseListView):
                     program_data["code"],
                 )
             ]
->>>>>>> 1618676 (feat: add_is enrolled queryparam default)
         return queryset
