@@ -215,10 +215,11 @@ class ProgramsListView(CourseListView):
         Returns:
         List of enrolled courses for the user qs
         """
-        queryset = [
-            program_data for program_data in queryset if CourseEnrollment.is_enrolled(
-                self.request.user_by_national_id,
-                program_data["code"],
-            )
-        ]
+        if self.request.query_params.get("is_enrolled", "true") == "true":
+            queryset = [
+                program_data for program_data in queryset if CourseEnrollment.is_enrolled(
+                    self.request.user_by_national_id,
+                    program_data["code"],
+                )
+            ]
         return queryset
