@@ -28,3 +28,13 @@ def get_generate_course_certificate_method():
         generate_course_certificate method.
     """
     return certificates.generation.generate_course_certificate
+
+
+def get_certificates_utils():
+    """Allow to get the certificates utils module.
+    https://github.com/nelc/edx-platform/tree/open-release/redwood.nelp/lms/djangoapps/certificates/utils.py
+
+    Returns:
+        certificates.utils module.
+    """
+    return certificates.utils
