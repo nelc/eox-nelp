@@ -1,5 +1,5 @@
 """
-unit tests for programs API v1 utils.
+Unit tests for programs API v1 utils.
 """
 
 import unittest
@@ -108,8 +108,8 @@ class GetProgramLookupRepresentationTestCase(unittest.TestCase):
             "program_name": "Test Course",
             "program_code": "CODE",
             "training_location": "FutureX",
-            "data_start": "2020-01-01T00:00:00Z",
-            "data_start_hijri": "1440-01-01",
+            "date_start": "2020-01-01T00:00:00Z",
+            "date_start_hijri": "1440-01-01",
             "date_end": "2020-12-31T00:00:00Z",
             "date_end_hijri": "1440-01-01",
             "trainer_type": 10,

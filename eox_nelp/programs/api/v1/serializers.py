@@ -54,9 +54,9 @@ class ProgramLookupSerializer(serializers.Serializer, ProgramValidationMixin):  
     code = serializers.CharField(required=True)
 
     # Mapped fields to match the provided data
-    data_start = serializers.CharField(required=True)
+    date_start = serializers.CharField(required=True)
     date_end = serializers.CharField(required=True, allow_null=True)
-    data_start_hijri = serializers.CharField(required=True)
+    date_start_hijri = serializers.CharField(required=True)
     date_end_hijri = serializers.CharField(required=True, allow_null=True)
     duration = serializers.IntegerField(required=False)
 
