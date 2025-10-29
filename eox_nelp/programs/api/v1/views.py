@@ -46,25 +46,32 @@ def require_feature_enabled(feature_name):
     return decorator
 
 
-def process_national_id_query_param():
-    """Decorator to check if national_id query parameter is valid if provided.
-    If not provided, the view will proceed without filtering by national_id.
-    Using the request user if not provided. Added to the request object the user_by_national_id attribute.
+def require_national_id_query_param():
+    """Decorator to check if national_id query parameter is valid and provided.
+    If not provided, the view will return a 400 error.
+    Added to the request object the user_by_national_id attribute.
     Returns  422 if invalid.
     """
     def decorator(func):
         @wraps(func)
         def wrapper(self, request, *args, **kwargs):
-            if national_id := self.request.query_params.get("national_id"):
-                if not is_valid_national_id(national_id):
-                    return Response(
-                        {
-                            "error": "INVALID_NATIONAL_ID",
-                            "message": "national_id must be digits only and 10–15 characters."
-                        },
-                        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    )
-                setattr(request, 'user_by_national_id', get_object_or_404(User, extrainfo__national_id=national_id))
+            if not (national_id := self.request.query_params.get("national_id")):
+                return Response(
+                    {
+                        "error": "MISSING_NATIONAL_ID",
+                        "message": "national_id query parameter is required.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not is_valid_national_id(national_id):
+                return Response(
+                    {
+                        "error": "INVALID_NATIONAL_ID",
+                        "message": "national_id must be digits only and 10–15 characters."
+                    },
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+            setattr(request, 'user_by_national_id', get_object_or_404(User, extrainfo__national_id=national_id))
             return func(self, request, *args, **kwargs)
 
         return wrapper
@@ -162,7 +169,7 @@ class ProgramsListView(CourseListView):
     permission_classes = [IsAuthenticated, ProgramsLookupPermission]
     serializer_class = ProgramLookupSerializer
 
-    @process_national_id_query_param()
+    @require_national_id_query_param()
     def get(self, request, *args, **kwargs):
         """Override get to apply some filtering and pre processing."""
         return super().get(request, *args, **kwargs)
@@ -193,29 +200,20 @@ class ProgramsListView(CourseListView):
             lazy sequence as used in
             https://github.com/openedx/edx-platform/blob/258f3fc/lms/djangoapps/course_api/api.py#L111
         """
-        if getattr(self.request, 'user_by_national_id', None):
-            visible_courses_queryset = courses.get_courses(user=self.request.user_by_national_id)
-        else:
-            visible_courses_queryset = super().get_queryset()
+        visible_courses_queryset = courses.get_courses(user=self.request.user_by_national_id)
         program_queryset = []
         for course in visible_courses_queryset:
             course_data = CourseDetailSerializer(course, context={'request': self.request}).data
             program_lookup = get_program_lookup_representation(course_data)
-            program_queryset.append(program_lookup)
+            if CourseEnrollment.is_enrolled(self.request.user_by_national_id, program_lookup["code"]):
+                program_queryset.append(program_lookup)
 
         return program_queryset
 
     def filter_queryset(self, queryset):
         """
-        Filter the queryset by course enrolled if the national_id query param is present.
+        Filter the queryset...
         Returns:
-        List of enrolled courses for the user qs
+            QuerySet: filtered queryset
         """
-        if getattr(self.request, 'user_by_national_id', None):
-            queryset = [
-                program_data for program_data in queryset if CourseEnrollment.is_enrolled(
-                    self.request.user_by_national_id,
-                    program_data["code"],
-                )
-            ]
         return queryset
