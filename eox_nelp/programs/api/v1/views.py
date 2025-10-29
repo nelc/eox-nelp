@@ -205,21 +205,15 @@ class ProgramsListView(CourseListView):
         for course in visible_courses_queryset:
             course_data = CourseDetailSerializer(course, context={'request': self.request}).data
             program_lookup = get_program_lookup_representation(course_data)
-            program_queryset.append(program_lookup)
+            if CourseEnrollment.is_enrolled(self.request.user_by_national_id, program_lookup["code"]):
+                program_queryset.append(program_lookup)
 
         return program_queryset
 
     def filter_queryset(self, queryset):
         """
-        Filter the queryset by course enrolled of the national_id user.
+        Filter the queryset...
         Returns:
-        List of enrolled courses for the user qs
+            QuerySet: filtered queryset
         """
-        if self.request.query_params.get("is_enrolled", "true") == "true":
-            queryset = [
-                program_data for program_data in queryset if CourseEnrollment.is_enrolled(
-                    self.request.user_by_national_id,
-                    program_data["code"],
-                )
-            ]
         return queryset
