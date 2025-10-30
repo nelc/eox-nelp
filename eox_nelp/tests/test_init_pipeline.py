@@ -18,16 +18,18 @@ from eox_nelp.init_pipeline import run_init_pipeline, set_mako_templates
 class RunInitPipelineTestCase(TestCase):
     """Test class for run_init_pipeline method."""
 
+    @patch("eox_nelp.init_pipeline.patch_form_fields_getattr")
     @patch("eox_nelp.init_pipeline.patch_generate_password")
     @patch("eox_nelp.init_pipeline.register_xapi_transformers")
     @patch("eox_nelp.init_pipeline.patch_user_gender_choices")
     @patch("eox_nelp.init_pipeline.set_mako_templates")
-    def test_pipeline_execute_expected_methods(
+    def test_pipeline_execute_expected_methods(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         set_mako_templates_mock,
         patch_user_gender_choices_mock,
         register_xapi_transformers_mock,
         patch_generate_password_mock,
+        patch_form_fields_getattr_mock,
     ):
         """ Test that method calls the expected methods during the pipeline execution.
 
@@ -41,6 +43,7 @@ class RunInitPipelineTestCase(TestCase):
         patch_user_gender_choices_mock.assert_called_once()
         register_xapi_transformers_mock.assert_called_once()
         patch_generate_password_mock.assert_called_once()
+        patch_form_fields_getattr_mock.assert_called_once()
 
 
 class SetMakoTemplatesTestCase(TestCase):

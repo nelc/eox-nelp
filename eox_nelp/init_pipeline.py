@@ -3,10 +3,38 @@ This file contains all the processes that must run after app registration.
 
 Functions:
 
-    run_init_pipeline: Wrapper for all the init methods, this avoids to import methods outside this file.
-    patch_user_gender_choices: Change the current openedx gender options (Male, Female, Other)
+    run_init_pipeline:
+        Executes all initialization processes required before the Django application starts.
+        Acts as an entry point to trigger the patching and setup routines defined below.
 
+    patch_user_gender_choices:
+        Updates the default Open edX gender field options to include only "Male" and "Female"
+        for compatibility with specific business rules.
+
+    set_mako_templates:
+        Adds plugin template directories to the Mako configuration to ensure that
+        the custom templates are properly discovered at runtime.
+
+    register_xapi_transformers:
+        Imports and registers all available xAPI event transformers to enable event tracking.
+
+    update_permissions:
+        Adjusts and extends Open edX permission rules to support additional business roles
+        and use cases (e.g., data researcher, staff, instructor).
+
+    patch_generate_password:
+        Replaces the default `generate_password` implementation from `edx_django_utils`
+        with a custom NELP version for improved tenant-specific logic.
+
+    patch_registration_form_factory:
+        Overrides the default `RegistrationFormFactory` used in user authentication
+        with the custom NELP implementation to support extended registration logic.
+
+    patch_form_fields_getattr:
+        Dynamically patches the `form_fields` module to include a custom `__getattr__`
+        method, enabling runtime generation of field handlers based on configuration.
 """
+
 import os
 
 from django.utils.translation import gettext_noop
@@ -22,6 +50,7 @@ def run_init_pipeline():
     update_permissions()
     patch_generate_password()
     patch_registration_form_factory()
+    patch_form_fields_getattr()
 
 
 def patch_user_gender_choices():
@@ -113,3 +142,16 @@ def patch_registration_form_factory():
     from eox_nelp.edxapp_wrapper.user_authn import views
     from eox_nelp.user_authn.views.registration_form import NelpRegistrationFormFactory
     views.registration_form.RegistrationFormFactory = NelpRegistrationFormFactory
+
+
+def patch_form_fields_getattr():
+    """
+    Patches the `form_fields` module within the Open edX user authentication app by dynamically
+    injecting a custom `__getattr__` method. This enables on-the-fly resolution of field handlers
+    (e.g., `add_<field>_field`) based on runtime configuration, allowing flexible field definition
+    without directly modifying the upstream module.
+    """
+    # pylint: disable=import-outside-toplevel
+    from eox_nelp.edxapp_wrapper.user_authn import form_fields
+    from eox_nelp.user_authn.api.patches import form_field_getattr_patch
+    setattr(form_fields, "__getattr__", form_field_getattr_patch)

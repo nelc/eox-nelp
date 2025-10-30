@@ -33,3 +33,12 @@ def get_registration_extension_form():
         Mock class.
     """
     return Mock()
+
+
+def get_api_form_fields():
+    """Return mock form_fields module.
+
+    Returns:
+        Mock instance.
+    """
+    return Mock()
