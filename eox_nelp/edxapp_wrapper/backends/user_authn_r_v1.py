@@ -4,6 +4,7 @@ This file contains all the necessary dependencies from
 https://github.com/nelc/edx-platform/tree/open-release/redwood.nelp/openedx/core/djangoapps/user_authn
 """
 from openedx.core.djangoapps.user_authn import views  # pylint: disable=import-error
+from openedx.core.djangoapps.user_authn.api import form_fields
 
 
 def get_registration_form_factory():
@@ -32,3 +33,13 @@ def get_registration_extension_form():
         get_registration_extension_form method.
     """
     return views.registration_form.get_registration_extension_form
+
+
+def get_api_form_fields():
+    """Allow to get the module form_fields from
+    https://github.com/nelc/edx-platform/blob/open-release/redwood.nelp/openedx/core/djangoapps/user_authn/api/form_fields.py
+
+    Returns:
+        form_fields module.
+    """
+    return form_fields
