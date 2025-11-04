@@ -386,73 +386,22 @@ class ProgramsListViewTestCase(APITestCase):
         self.course1 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}1")
         self.course2 = CourseOverview.objects.create(id=f"{self.BASE_COURSE_ID}2")
 
-    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
-    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
-    def test_get_programs_list_authenticated(
-        self,
-        mock_get_program_metadata,
-        mock_course_serializer,
-    ):
+    def test_get_programs_list_authenticated_without_national_id(self):
         """
-        Test GET returns program list for authenticated user.
+        Test GET returns program list for authenticated user. But with not national_id query param.
         Expected behavior:
-            - Status code 200.
-            - Response is a list of program dicts matching expected_data.
+            - Status code 400.
+            - Error message indicating that national_id is required.
         """
-        serializer_side_effect = []
-        for course_data in COURSE_API_SERIALIZER_DATA:
-            mock_serializer_instance = MagicMock()
-            mock_serializer_instance.data = course_data
-            serializer_side_effect.append(mock_serializer_instance)
-        mock_course_serializer.side_effect = serializer_side_effect
-        mock_get_program_metadata.return_value = {
-            "trainer_type": 10,
-            "type_of_activity": 165,
-            "mandatory": "01",
-            "program_approve": "00",
-            "program_code": "eltesst",
+        expected_data = {
+            "error": "MISSING_NATIONAL_ID",
+            "message": "national_id query parameter is required."
         }
-        expected_data = [
-            {
-                "program_name": "testigngg",
-                "program_code": "eltesst",
-                "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
-                "type_of_activity_id": 165,
-                "mandatory": "01",
-                "program_approve": "00",
-                "code": "course-v1:edx+cd101+2020323",
-                "date_start": "2030-01-01",
-                "date_end": None,
-                "date_start_hijri": '1451-08-26',
-                "date_end_hijri": None,
-                "duration": 1,
-                "training_location": "FutureX",
-                "trainer_type": 10,
-                "unit": "hour",
-            },
-            {
-                "program_name": "small-graded",
-                "program_code": "eltesst",
-                "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
-                "type_of_activity_id": 165,
-                "mandatory": "01",
-                "program_approve": "00",
-                "code": "course-v1:edx+cd101+2023-t1",
-                "date_start": "2020-01-01",
-                "date_end": "2034-12-25",
-                "date_start_hijri": "1441-05-06",
-                "date_end_hijri": "1456-10-14",
-                "duration": 2,
-                "training_location": "FutureX",
-                "trainer_type": 10,
-                "unit": "hour",
-            },
-        ]
 
         response = self.client.get(self.url)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertListEqual(response.data["results"], expected_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertDictEqual(response.data, expected_data)
 
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
@@ -547,10 +496,11 @@ class ProgramsListViewTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Authentication credentials were not provided", str(response.data))
 
+    @patch("eox_nelp.programs.api.v1.views.courses")
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     def test_get_programs_list_missing_data(
-        self, mock_get_program_metadata, mock_course_serializer,
+        self, mock_get_program_metadata, mock_course_serializer, mock_courses
     ):
         """
         Test GET returns error if ProgramLookupSerializer is invalid.
@@ -559,7 +509,16 @@ class ProgramsListViewTestCase(APITestCase):
             - Response result is alist.
             - Expected data matches with null values
         """
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user3", password="pass3")
+        national_id = "1222888555"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=user_by_national_id_instance,
+            arabic_name="مسؤل",
+            national_id=national_id,
+        )
         serializer_side_effect = []
+        course = MagicMock(id="course-v1:edx+special+2024")
+        mock_courses.get_courses.return_value = [course, course]
         for course_data in COURSE_API_SERIALIZER_DATA:
             mock_serializer_instance = MagicMock()
             mock_serializer_instance.data = course_data
@@ -603,7 +562,7 @@ class ProgramsListViewTestCase(APITestCase):
             },
         ]
 
-        response = self.client.get(self.url)
+        response = self.client.get(self.url, {"national_id": national_id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data["results"], list)
