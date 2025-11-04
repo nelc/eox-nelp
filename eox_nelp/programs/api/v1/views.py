@@ -212,7 +212,11 @@ class ProgramsListView(CourseListView):
 
     def filter_queryset(self, queryset):
         """
-        Filter the queryset...
+        Filter the queryset using query parameters.
+        Filters:
+          - certificated_only: If true, only include programs with a certificate path.
+        Args:
+            queryset: Initial queryset
         Returns:
             QuerySet: filtered queryset
         """
