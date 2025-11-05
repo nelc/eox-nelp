@@ -79,4 +79,4 @@ def form_field_getattr_patch(attribute):
     if field_name in extended_profile_fields:
         return _generate_handler(field_name)
 
-    raise AttributeError()
+    raise AttributeError(f"Invalid attribute: '{attribute}'.")

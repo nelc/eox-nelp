@@ -63,7 +63,6 @@ class FormFieldGetAttrPatchTestCase(TestCase):
         translated_label = "Deporte"
         attribute = f"add_{field_name}_field"
         mock_get_request.return_value = self.mock_request
-
         configuration_helpers.get_value.side_effect = lambda key, default=None: {
             "extended_profile_fields": ["sport"],
             "extended_profile_fields_translations": {
