@@ -406,12 +406,14 @@ class ProgramsListViewTestCase(APITestCase):
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_filtered_by_certificated(
         self,
         mock_courses,
         mock_is_enrolled,
+        mock_get_user_generated_certificate,
         mock_get_user_lms_certificate_path,
         mock_get_program_metadata,
         mock_course_serializer,
@@ -430,8 +432,7 @@ class ProgramsListViewTestCase(APITestCase):
             arabic_name="مسؤل",
             national_id=national_id,
         )
-        course = MagicMock(id="course-v1:edx+special+2024")
-        mock_courses.get_courses.return_value = [course]
+        mock_courses.get_courses.return_value = [MagicMock(id="course-v1:edx+special+2024")]
         serializer_side_effect = []
         mock_is_enrolled.return_value = True
         for course_data in COURSE_API_SERIALIZER_DATA:
@@ -448,6 +449,9 @@ class ProgramsListViewTestCase(APITestCase):
             "program_code": "eltesst",
             "program_name": "small-graded",
         }
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
         expected_data = {
             "results": [
                 {
@@ -467,6 +471,8 @@ class ProgramsListViewTestCase(APITestCase):
                     "trainer_type": 10,
                     "unit": "hour",
                     "certificate_url": None,
+                    "completion_date": "2024-06-01",
+                    "completion_date_hijri": "1445-11-24",
                 }
             ],
             "pagination": {"next": None, "previous": None, "count": 1, "num_pages": 1},
@@ -489,12 +495,14 @@ class ProgramsListViewTestCase(APITestCase):
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_list_with_national_id(
         self,
         mock_courses,
         mock_is_enrolled,
+        mock_get_user_generated_certificate,
         mock_get_user_lms_certificate_path,
         mock_get_program_metadata,
         mock_course_serializer,
@@ -531,6 +539,9 @@ class ProgramsListViewTestCase(APITestCase):
             "program_code": "nationalidtest",
         }
         mock_get_user_lms_certificate_path.return_value = "/certificates/def-456"
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
         expected_data = [
             {
                 "program_name": "testigngg",
@@ -549,6 +560,8 @@ class ProgramsListViewTestCase(APITestCase):
                 "trainer_type": 10,
                 "unit": "hour",
                 "certificate_url": "http://testserver/certificates/def-456",
+                "completion_date": "2024-06-01",
+                "completion_date_hijri": "1445-11-24",
             }
         ]
 
@@ -591,9 +604,15 @@ class ProgramsListViewTestCase(APITestCase):
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     def test_get_programs_list_missing_data(
-        self, mock_get_user_lms_certificate_path, mock_get_program_metadata, mock_course_serializer, mock_courses,
-    ):
+        self,
+        mock_get_user_generated_certificate,
+        mock_get_user_lms_certificate_path,
+        mock_get_program_metadata,
+        mock_course_serializer,
+        mock_courses,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
         """
         Test GET returns error if ProgramLookupSerializer is invalid.
         Expected behavior:
@@ -618,6 +637,7 @@ class ProgramsListViewTestCase(APITestCase):
         mock_course_serializer.side_effect = serializer_side_effect
         mock_get_program_metadata.return_value = {}
         mock_get_user_lms_certificate_path.return_value = ""
+        mock_get_user_generated_certificate.return_value = None
         expected_data = [
             {
                 "program_name": "testigngg",
@@ -636,6 +656,8 @@ class ProgramsListViewTestCase(APITestCase):
                 "trainer_type": 10,
                 "unit": "hour",
                 "certificate_url": None,
+                "completion_date": None,
+                "completion_date_hijri": None,
             },
             {
                 "program_name": "small-graded",
@@ -654,6 +676,8 @@ class ProgramsListViewTestCase(APITestCase):
                 "trainer_type": 10,
                 "unit": "hour",
                 "certificate_url": None,
+                "completion_date": None,
+                "completion_date_hijri": None,
             },
         ]
 
@@ -688,12 +712,14 @@ class ProgramsListViewTestCase(APITestCase):
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
     @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_list_no_courses_enrolled(
         self,
         mock_courses,
         mock_is_enrolled,
+        mock_get_user_generated_certificate,
         mock_get_user_lms_certificate_path,
         mock_get_program_metadata,
         mock_course_serializer,
@@ -724,6 +750,10 @@ class ProgramsListViewTestCase(APITestCase):
         mock_is_enrolled.return_value = False
         mock_get_program_metadata.return_value = {}
         mock_get_user_lms_certificate_path.return_value = ""
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
+
         response = self.client.get(self.url, {"national_id": national_id})
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

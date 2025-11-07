@@ -10,8 +10,8 @@ from datetime import datetime
 from hijridate import Gregorian
 from opaque_keys.edx.keys import CourseKey
 
-from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.certificates import models as certificates_models
+from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
 
@@ -89,7 +89,9 @@ def get_program_lookup_representation(user, course_api_data):
         "code": course_api_data["course_id"],
         "certificate_path": get_user_lms_certificate_path(generated_certificate) if generated_certificate else None,
         "completion_date": completion_date,
-        "completion_date_hijri": Gregorian.fromisoformat(completion_date).to_hijri().isoformat() if completion_date else None,
+        "completion_date_hijri": Gregorian.fromisoformat(
+            completion_date
+        ).to_hijri().isoformat() if completion_date else None,
     }
     return program_lookup_representation
 
@@ -167,7 +169,7 @@ def get_user_generated_certificate(user, course_id):
         course_id: Course identifier
 
     """
-    GeneratedCertificate = certificates_models.GeneratedCertificate
+    GeneratedCertificate = certificates_models.GeneratedCertificate  # pylint: disable=invalid-name
     try:
         generated_certificate = GeneratedCertificate.objects.get(user=user, course_id=course_id)
     except GeneratedCertificate.DoesNotExist:
