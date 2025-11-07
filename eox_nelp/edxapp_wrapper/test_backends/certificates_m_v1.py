@@ -64,3 +64,11 @@ def get_certificates_utils():
          Mock instance.
     """
     return Mock()
+
+
+def get_certificates_models():
+    """Return models mock module
+    Returns:
+         Mock instance.
+    """
+    return Mock()

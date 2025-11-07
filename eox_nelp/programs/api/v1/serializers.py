@@ -66,6 +66,8 @@ class ProgramLookupSerializer(serializers.Serializer, ProgramValidationMixin):  
     unit = serializers.CharField(read_only=True, default="hour")
 
     certificate_url = serializers.SerializerMethodField()
+    completion_date = serializers.CharField(required=True, allow_null=True)
+    completion_date_hijri = serializers.CharField(required=True, allow_null=True)
 
     def get_certificate_url(self, program):
         """Generate certificate_url based on user and course code.

@@ -38,3 +38,13 @@ def get_certificates_utils():
         certificates.utils module.
     """
     return certificates.utils
+
+
+def get_certificates_models():
+    """Allow to get the certificates models module.
+    https://github.com/nelc/edx-platform/tree/open-release/redwood.nelp/lms/djangoapps/certificates/models.py
+
+    Returns:
+        certificates.models module.
+    """
+    return certificates.models
