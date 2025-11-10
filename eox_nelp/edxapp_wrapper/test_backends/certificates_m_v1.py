@@ -56,3 +56,19 @@ def get_generate_course_certificate_method():
         Mock instance.
     """
     return Mock()
+
+
+def get_certificates_utils():
+    """Return utils mock module
+    Returns:
+         Mock instance.
+    """
+    return Mock()
+
+
+def get_certificates_models():
+    """Return models mock module
+    Returns:
+         Mock instance.
+    """
+    return Mock()

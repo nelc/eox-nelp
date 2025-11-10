@@ -405,11 +405,108 @@ class ProgramsListViewTestCase(APITestCase):
 
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
+    @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
+    @patch("eox_nelp.programs.api.v1.views.courses")
+    def test_get_programs_filtered_by_certificated(
+        self,
+        mock_courses,
+        mock_is_enrolled,
+        mock_get_user_generated_certificate,
+        mock_get_user_lms_certificate_path,
+        mock_get_program_metadata,
+        mock_course_serializer,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
+        """
+        Test GET returns program list for authenticated user filtered by certificated only.
+        Expected behavior:
+            - Response without filter Status code 200.
+            - Response without filter matches expected data.
+            - Response with certificated_only=true Status code 404.
+            - Response with certificated_only=true returns error as no certificated programs found.    """
+        user_by_national_id_instance, _ = User.objects.get_or_create(username="user0", password="pass0")
+        national_id = "1222888555"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=user_by_national_id_instance,
+            arabic_name="مسؤل",
+            national_id=national_id,
+        )
+        mock_courses.get_courses.return_value = [MagicMock(id="course-v1:edx+special+2024")]
+        serializer_side_effect = []
+        mock_is_enrolled.return_value = True
+        for course_data in COURSE_API_SERIALIZER_DATA:
+            mock_serializer_instance = MagicMock()
+            mock_serializer_instance.data = course_data
+            serializer_side_effect.append(mock_serializer_instance)
+        mock_course_serializer.side_effect = serializer_side_effect
+        mock_get_user_lms_certificate_path.return_value = ""
+        mock_get_program_metadata.return_value = {
+            "trainer_type": 10,
+            "type_of_activity": 165,
+            "mandatory": "01",
+            "program_approve": "00",
+            "program_code": "eltesst",
+            "program_name": "small-graded",
+        }
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
+        expected_data = {
+            "results": [
+                {
+                    "program_name": "testigngg",
+                    "program_code": "eltesst",
+                    "type_of_activity": "برنامج الاستثمار الأمثل (برامج قصيرة)",
+                    "type_of_activity_id": 165,
+                    "mandatory": "01",
+                    "program_approve": "00",
+                    "code": "course-v1:edx+cd101+2020323",
+                    "date_start": "2030-01-01",
+                    "date_end": None,
+                    "date_start_hijri": "1451-08-26",
+                    "date_end_hijri": None,
+                    "duration": 1,
+                    "training_location": "FutureX",
+                    "trainer_type": 10,
+                    "unit": "hour",
+                    "certificate_url": None,
+                    "completion_date": "2024-06-01",
+                    "completion_date_hijri": "1445-11-24",
+                }
+            ],
+            "pagination": {"next": None, "previous": None, "count": 1, "num_pages": 1},
+        }
+
+        response = self.client.get(self.url, {"national_id": national_id})
+        response_filtered = self.client.get(self.url, {"national_id": national_id, "certificated_only": "true"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertDictEqual(response.data, expected_data)
+        self.assertDictEqual(
+            response_filtered.data,
+            {
+                "error": "NO_PROGRAM_FOR_NATIONAL_ID",
+                "message": "No program found for the provided National ID 1222888555."
+            },
+        )
+        self.assertEqual(response_filtered.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
+    @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_list_with_national_id(
-        self, mock_courses, mock_is_enrolled, mock_get_program_metadata, mock_course_serializer,
-    ):
+        self,
+        mock_courses,
+        mock_is_enrolled,
+        mock_get_user_generated_certificate,
+        mock_get_user_lms_certificate_path,
+        mock_get_program_metadata,
+        mock_course_serializer,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
         """
         Test GET returns program list for user with given national_id.
         Expected behavior:
@@ -441,6 +538,10 @@ class ProgramsListViewTestCase(APITestCase):
             "program_approve": "01",
             "program_code": "nationalidtest",
         }
+        mock_get_user_lms_certificate_path.return_value = "/certificates/def-456"
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
         expected_data = [
             {
                 "program_name": "testigngg",
@@ -458,6 +559,9 @@ class ProgramsListViewTestCase(APITestCase):
                 "training_location": "FutureX",
                 "trainer_type": 10,
                 "unit": "hour",
+                "certificate_url": "http://testserver/certificates/def-456",
+                "completion_date": "2024-06-01",
+                "completion_date_hijri": "1445-11-24",
             }
         ]
 
@@ -499,9 +603,16 @@ class ProgramsListViewTestCase(APITestCase):
     @patch("eox_nelp.programs.api.v1.views.courses")
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     def test_get_programs_list_missing_data(
-        self, mock_get_program_metadata, mock_course_serializer, mock_courses
-    ):
+        self,
+        mock_get_user_generated_certificate,
+        mock_get_user_lms_certificate_path,
+        mock_get_program_metadata,
+        mock_course_serializer,
+        mock_courses,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
         """
         Test GET returns error if ProgramLookupSerializer is invalid.
         Expected behavior:
@@ -525,6 +636,8 @@ class ProgramsListViewTestCase(APITestCase):
             serializer_side_effect.append(mock_serializer_instance)
         mock_course_serializer.side_effect = serializer_side_effect
         mock_get_program_metadata.return_value = {}
+        mock_get_user_lms_certificate_path.return_value = ""
+        mock_get_user_generated_certificate.return_value = None
         expected_data = [
             {
                 "program_name": "testigngg",
@@ -542,6 +655,9 @@ class ProgramsListViewTestCase(APITestCase):
                 "training_location": "FutureX",
                 "trainer_type": 10,
                 "unit": "hour",
+                "certificate_url": None,
+                "completion_date": None,
+                "completion_date_hijri": None,
             },
             {
                 "program_name": "small-graded",
@@ -559,6 +675,9 @@ class ProgramsListViewTestCase(APITestCase):
                 "training_location": "FutureX",
                 "trainer_type": 10,
                 "unit": "hour",
+                "certificate_url": None,
+                "completion_date": None,
+                "completion_date_hijri": None,
             },
         ]
 
@@ -592,13 +711,21 @@ class ProgramsListViewTestCase(APITestCase):
 
     @patch("eox_nelp.programs.api.v1.views.CourseDetailSerializer")
     @patch("eox_nelp.programs.api.v1.utils.get_program_metadata")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_lms_certificate_path")
+    @patch("eox_nelp.programs.api.v1.utils.get_user_generated_certificate")
     @patch("eox_nelp.programs.api.v1.views.CourseEnrollment.is_enrolled")
     @patch("eox_nelp.programs.api.v1.views.courses")
     def test_get_programs_list_no_courses_enrolled(
-        self, mock_courses, mock_is_enrolled, _, mock_course_serializer,
-    ):
+        self,
+        mock_courses,
+        mock_is_enrolled,
+        mock_get_user_generated_certificate,
+        mock_get_user_lms_certificate_path,
+        mock_get_program_metadata,
+        mock_course_serializer,
+    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
         """
-        Test GET returns program list for user with given national_id.
+        Test GET not returns program list for user with given national_id.
         Expected behavior:
             - Status code 400.
             - The expected data matches with the response.
@@ -621,6 +748,11 @@ class ProgramsListViewTestCase(APITestCase):
         course = MagicMock(id="course-v1:edx+special+2024")
         mock_courses.get_courses.return_value = [course]
         mock_is_enrolled.return_value = False
+        mock_get_program_metadata.return_value = {}
+        mock_get_user_lms_certificate_path.return_value = ""
+        mock_get_user_generated_certificate.return_value = MagicMock(
+            modified_date=MagicMock(strftime=MagicMock(return_value="2024-06-01T00:00:00Z"))
+        )
 
         response = self.client.get(self.url, {"national_id": national_id})
 

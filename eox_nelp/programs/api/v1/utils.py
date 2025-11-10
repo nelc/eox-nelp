@@ -10,6 +10,8 @@ from datetime import datetime
 from hijridate import Gregorian
 from opaque_keys.edx.keys import CourseKey
 
+from eox_nelp.edxapp_wrapper.certificates import models as certificates_models
+from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.programs.api.v1.constants import TYPES_OF_ACTIVITY_MAPPING
 
@@ -52,7 +54,7 @@ def update_program_metadata(course_id, program_data, user):
     store.update_item(course_block, user.id)
 
 
-def get_program_lookup_representation(course_api_data):
+def get_program_lookup_representation(user, course_api_data):
     """
     Generate a lookup representation for program metadata.
 
@@ -65,6 +67,10 @@ def get_program_lookup_representation(course_api_data):
     program_metadata = get_program_metadata(course_api_data["course_id"])
     date_start_iso = convert_to_isoformat(course_api_data.get("start"))
     date_end_iso = convert_to_isoformat(course_api_data.get("end"))
+    generated_certificate = get_user_generated_certificate(user, course_api_data["course_id"])
+    completion_date = convert_to_isoformat(
+        generated_certificate.modified_date.strftime("%Y-%m-%dT%H:%M:%S%z")
+    ) if generated_certificate else None
     program_lookup_representation = {
         "program_name": course_api_data.get("name"),
         "program_code": program_metadata.get("program_code"),
@@ -81,6 +87,11 @@ def get_program_lookup_representation(course_api_data):
         "mandatory": program_metadata.get("mandatory"),
         "program_approve": program_metadata.get("program_approve"),
         "code": course_api_data["course_id"],
+        "certificate_path": get_user_lms_certificate_path(generated_certificate) if generated_certificate else None,
+        "completion_date": completion_date,
+        "completion_date_hijri": Gregorian.fromisoformat(
+            completion_date
+        ).to_hijri().isoformat() if completion_date else None,
     }
     return program_lookup_representation
 
@@ -133,3 +144,34 @@ def hms_to_int(time_str):
     except ValueError as e:
         logger.warning("Error converting time string: %s", e)
         return None
+
+
+def get_user_lms_certificate_path(generated_certificate):
+    """
+    Retrieve the path of a certificate using a generated certificate object.
+
+    Args:
+        generated_certificate: GeneratedCertificate object
+    """
+    cert_status = certificates_utils.certificate_status(generated_certificate)
+    lms_certificate_path = certificates_utils._certificate_html_url(  # pylint: disable=protected-access
+        uuid=cert_status["uuid"],
+    )
+    return lms_certificate_path
+
+
+def get_user_generated_certificate(user, course_id):
+    """
+    Retrieve the GeneratedCertificate object for a user and course.
+
+    Args:
+        user: User object
+        course_id: Course identifier
+
+    """
+    GeneratedCertificate = certificates_models.GeneratedCertificate  # pylint: disable=invalid-name
+    try:
+        generated_certificate = GeneratedCertificate.objects.get(user=user, course_id=course_id)
+    except GeneratedCertificate.DoesNotExist:
+        generated_certificate = None
+    return generated_certificate
