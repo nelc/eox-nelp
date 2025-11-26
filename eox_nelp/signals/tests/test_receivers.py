@@ -525,7 +525,9 @@ class IncludeTrackerContextTestCase(unittest.TestCase):
         Expected behavior:
             - body kwargs is equal to the tracker context
         """
-        body = {"kwargs": {}}  # This is the default value for kwargs
+        args = []
+        kwargs = {}  # This is the default value for kwargs
+        body = (args, kwargs)
         context = {"This is a fake context": True}
 
         # Set tracker context
@@ -534,7 +536,7 @@ class IncludeTrackerContextTestCase(unittest.TestCase):
         with tracker.context("this_does_not_matter", context):
             include_tracker_context(body)
 
-        self.assertEqual(context, body["kwargs"]["tracker_context"])
+        self.assertEqual(context, kwargs["tracker_context"])
 
 
 class UpdateAsyncTrackerContextTestCase(unittest.TestCase):
