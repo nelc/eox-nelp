@@ -309,7 +309,7 @@ def include_tracker_context(body, *args, **kwargs):  # pylint: disable=unused-ar
     """
     current_tracker = tracker.get_tracker()
     context = current_tracker.resolve_context()
-    body["kwargs"]["tracker_context"] = context
+    body[1]["tracker_context"] = context
 
 
 def update_async_tracker_context(sender, *args, **kwargs):  # pylint: disable=unused-argument
