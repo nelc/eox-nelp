@@ -1,5 +1,7 @@
 """Utils module to dont repeat code."""
 import logging
+import operator
+from functools import reduce
 
 from django.core.exceptions import MultipleObjectsReturned
 
@@ -34,3 +36,18 @@ def match_user_using_uid_query(backend, response, user_query):
         )
 
     return user_match
+
+
+def get_value_from_nested_dict(data, path):
+    """
+    Extract a nested field from a JSON-like dict using dot notation.
+    Example:
+        data = {"user": {"details": {"profile": {"information": {"national_id": 123}}}}}
+        path = "user.details.profile.information.national_id"
+        → returns 123
+    """
+    try:
+        keys = path.split(".")
+        return reduce(operator.getitem, keys, data)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return None
