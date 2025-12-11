@@ -7,8 +7,8 @@ functions:
 import logging
 
 from django.conf import settings
-from django.contrib.auth import logout
-from django.core.exceptions import MultipleObjectsReturned
+from django.contrib.auth import get_user_model, logout
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
@@ -18,9 +18,10 @@ from social_core.pipeline.social_auth import social_details as social_core_detai
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
 from eox_nelp.edxapp_wrapper.third_party_auth import Registry
 from eox_nelp.edxapp_wrapper.user_authn import get_registration_extension_form
-from eox_nelp.third_party_auth.utils import match_user_using_uid_query
+from eox_nelp.third_party_auth.utils import get_value_from_nested_dict, match_user_using_uid_query
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 def social_details(backend, details, response, *args, **kwargs):
@@ -227,3 +228,70 @@ def custom_form_force_sync(strategy, details, *args, user=None, **kwargs):  # py
             logger.info("Custom form object with id %s has been successfully %s", obj.id, action)
         except MultipleObjectsReturned:
             logger.error("Invalid custom form synchronization, multiple objects returned, for user with id %s", user.id)
+
+
+def safer_associate_user_by_attribute(backend, response, *args, user=None, **kwargs):  # pylint: disable=unused-argument
+    """
+    Pipeline step for authentication backends.
+
+    Purpose:
+        Allow automatic user association by extracting a value from a deeply nested
+        attribute inside the IdP response JSON and using it to identify an existing
+        local user through a configurable Django ORM lookup.
+
+    Configuration:
+        Each backend can declare a mapping in settings such as:
+
+        SOCIAL_AUTH_<BACKEND_NAME>_USER_ASSOCIATION_ATTRIBUTE = {
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": "extrainfo__national_id",
+        }
+
+        Where:
+        - `attribute_path` is a dot-separated path used to locate the value inside
+          the IdP JSON response (supports nested dictionaries).
+        - `user_query` is the Django ORM lookup used to search for the user in the
+          local database.
+
+    Behavior:
+        - If the extracted value exists and exactly one user matches the query,
+          the pipeline returns {"user": matched_user, "is_new": False}.
+        - If no value is found, no user matches, or multiple matches exist, the
+          pipeline safely returns None to avoid incorrect associations.
+
+    Returns:
+        dict: {"user": User, "is_new": False} if a single match is found.
+        None: if no secure and deterministic match can be made.
+    """
+    if user:
+        return None
+
+    backend_name_upper = backend.name.replace("-", "_").upper()
+    setting_name = f"SOCIAL_AUTH_{backend_name_upper}_USER_ASSOCIATION_ATTRIBUTE"
+    match_config = getattr(settings, setting_name, {})
+    attribute_path = match_config.get("attribute_path")
+    user_query = match_config.get("user_query")
+
+    if not attribute_path or not user_query:
+        return None
+
+    # Extract value from IdP JSON response (nested)
+    lookup_value = get_value_from_nested_dict(response, attribute_path)
+
+    if lookup_value is None:
+        return None
+
+    # Perform lookup in the user model
+    try:
+        matched_user = User.objects.get(**{user_query: lookup_value})
+    except ObjectDoesNotExist:
+        # No matching user; let the rest of the pipeline continue normally.
+        return None
+    except MultipleObjectsReturned:
+        # Ambiguous match; safer to do nothing than to pick the wrong account.
+        return None
+
+    return {
+        "user": matched_user,
+        "is_new": False,
+    }

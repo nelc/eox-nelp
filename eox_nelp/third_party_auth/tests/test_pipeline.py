@@ -4,7 +4,7 @@ from ddt import data, ddt
 from django.contrib.auth import get_user_model
 from django.core.exceptions import MultipleObjectsReturned
 from django.http import HttpResponseForbidden
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from mock import Mock, patch
 from rest_framework import status
 
@@ -12,6 +12,7 @@ from eox_nelp.third_party_auth import pipeline, utils
 from eox_nelp.third_party_auth.pipeline import (
     custom_form_force_sync,
     disallow_staff_superuser_users,
+    safer_associate_user_by_attribute,
     safer_associate_user_by_national_id,
     safer_associate_user_by_social_auth_record,
     validate_national_id_and_associate_user,
@@ -322,3 +323,181 @@ class CustomFormForceSyncTestCase(SetUpPipeMixin, TestCase):
         custom_form_force_sync(strategy, details, user=user)
 
         mock_get_registration_extension_form.assert_called_once()
+
+
+class SaferAssociateUserByAttributeTestCase(SetUpPipeMixin, TestCase):
+    """Test case for `safer_associate_user_by_attribute` pipeline."""
+
+    def setUp(self):
+        """Set up backend name and a sample IdP nested response."""
+        super().setUp()
+        self.backend.name = "config-based-openidconnect-pkce"
+        self.response = {
+            "user": {
+                "details": {
+                    "profile": {
+                        "information": {
+                            "national_id": "987654321"
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_user_already_present(self):
+        """If pipeline receives an already-matched user, it must return None.
+
+        Expected behavior:
+            - Return None immediately without performing lookup.
+        """
+        output = safer_associate_user_by_attribute(
+            self.backend, self.response, user=self.user
+        )
+
+        self.assertIsNone(output)
+
+    def test_no_settings_defined(self):
+        """If no settings are defined, the pipeline must return None.
+
+        Expected behavior:
+            - Do not attempt any lookup.
+            - Return None.
+        """
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": None,
+            "user_query": "extrainfo__national_id",
+        }
+    )
+    def test_missing_attribute_path(self):
+        """If attribute_path is missing, pipeline must return None.
+
+        Expected behavior:
+            - Skip user matching.
+            - Return None.
+        """
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": None,
+        }
+    )
+    def test_missing_user_query(self):
+        """If user_query is missing, pipeline must return None.
+
+        Expected behavior:
+            - Do not attempt ORM lookup.
+            - Return None.
+        """
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.unknown_field",
+            "user_query": "extrainfo__national_id",
+        }
+    )
+    def test_attribute_not_found(self):
+        """If the attribute path does not exist in the IdP response, return None.
+
+        Expected behavior:
+            - Extracted value is None.
+            - Pipeline returns None.
+        """
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": "extrainfo__national_id",
+        }
+    )
+    def test_no_matching_user(self):
+        """If no user matches the extracted value, pipeline returns None.
+
+        Expected behavior:
+            - ORM lookup raises ObjectDoesNotExist.
+            - Return None.
+        """
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": "extrainfo__national_id",
+        }
+    )
+    def test_multiple_matching_users(self):
+        """If multiple users match, pipeline must return None to avoid unsafe association.
+
+        Expected behavior:
+            - ORM lookup raises MultipleObjectsReturned.
+            - Pipeline returns None.
+        """
+        user1 = User.objects.create(username="u1")
+        user2 = User.objects.create(username="u2")
+        # pylint: disable=no-member
+        ExtraInfo.objects.create(user=user1, national_id="123456789")
+        ExtraInfo.objects.create(user=user2, national_id="874599662")
+
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": "extrainfo__national_id",
+        }
+    )
+    def test_single_matching_user(self):
+        """If one user matches, pipeline must return that user with is_new=False.
+
+        Expected behavior:
+            - ORM lookup returns exactly one user.
+            - Pipeline returns {"user": matched_user, "is_new": False}.
+        """
+        matched_user = User.objects.create(username="unique_user")
+        ExtraInfo.objects.create(user=matched_user, national_id="987654321")  # pylint: disable=no-member
+
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertEqual(
+            output,
+            {"user": matched_user, "is_new": False},
+        )
+
+    @override_settings(
+        SOCIAL_AUTH_CONFIG_BASED_OPENIDCONNECT_PKCE_USER_ASSOCIATION_ATTRIBUTE={
+            "attribute_path": "user.details.profile.information.national_id",
+            "user_query": "email",
+        }
+    )
+    def test_multiple_objects_returned_raises_multiple_objects_returned(self):
+        """If the user lookup raises MultipleObjectsReturned, the pipeline must return None."""
+        # Two users with same email (allowed unless unique=True)
+        User.objects.create(username="u1", email="duplicated@example.com")
+        User.objects.create(username="u2", email="duplicated@example.com")
+        # The extracted lookup_value from the IdP response
+        # must match the duplicated email
+        self.response["user"]["details"]["profile"]["information"]["national_id"] = (
+            "duplicated@example.com"
+        )
+
+        output = safer_associate_user_by_attribute(self.backend, self.response)
+
+        self.assertIsNone(output)
