@@ -14,7 +14,7 @@ class SettingsClass:
     """ dummy settings class """
 
 
-def test_plugin_settings(settings):
+def test_plugin_settings(settings):  # pylint: disable=too-many-statements
     """
     Defines eox-nelp settings when app is used as a plugin to edx-platform.
     See: https://github.com/edx/edx-platform/blob/master/openedx/core/djangoapps/plugins/README.rst
@@ -70,6 +70,11 @@ def test_plugin_settings(settings):
     settings.PEARSON_ENGINE_API_URL = 'https://testing.com'
     settings.PEARSON_ENGINE_API_CLIENT_SECRET = "12345678p"
     settings.PEARSON_ENGINE_API_CLIENT_ID = "12345678"
+
+    settings.GCP_CLOUD_CDN_SIGNING_KEY_NAME = "test-key"
+    settings.GCP_CLOUD_CDN_SIGNING_KEY = "MDEyMzQ1Njc4OWFiY2RlZg"
+    settings.GCP_CLOUD_CDN_URL_PREFIX = "http://test/"
+    settings.GCP_CLOUD_CDN_COOKIE_MAX_AGE = 3600
 
 
 PLATFORM_NAME = "Testing environment"
