@@ -32,6 +32,7 @@ class NotifyUpcomingCourseDueDateTestCase(TestCase):
             patch("eox_nelp.notifications.notify_course_due_date.get_xblock_from_usage_key_string"),
             patch("eox_nelp.notifications.notify_course_due_date.CourseEnrollment"),
             patch("eox_nelp.notifications.notify_course_due_date.get_course_email_context"),
+            patch("eox_nelp.notifications.notify_course_due_date.use_read_replica_if_available"),
         ]
         self.send_email_multialternative_mock = self.patchers[0].start()
         self.course_email_template_mock = self.patchers[1].start()
@@ -39,6 +40,8 @@ class NotifyUpcomingCourseDueDateTestCase(TestCase):
         self.get_xblock_from_usage_key_string_mock = self.patchers[3].start()
         self.course_enrollment_mock = self.patchers[4].start()
         self.get_course_email_context_mock = self.patchers[5].start()
+        use_read_replica_if_available_mock = self.patchers[6].start()
+        use_read_replica_if_available_mock.side_effect = lambda x: x
 
     def tearDown(self):
         """Stop patching."""

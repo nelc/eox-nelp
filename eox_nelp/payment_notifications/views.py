@@ -77,7 +77,7 @@ def get_payment_notifications_context(request):
         PaymentNotification.objects.filter(  # pylint: disable=no-member
             cdtrans_lms_user_id=user_id,
         ),
-    ),
+    )
     if count_view:
         for notification in all_notifications_for_user:
             notification.internal_view_count += 1
