@@ -17,6 +17,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.http import Http404
 from django.http.request import QueryDict
+from edx_django_utils.db.read_replica import use_read_replica_if_available
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from opaque_keys import InvalidKeyError
@@ -100,13 +101,16 @@ class ExperienceView(BaseJsonAPIView):
     Ancestors:
         BaseJsonAPIView: Inherited for the rest json api config.
     """
+
     def get_queryset(self, *args, **kwargs):
         """Filter the queryset before being used.
 
         Returns:
             Queryset: queysyset using the super method, but filtered.
         """
-        return super().get_queryset(*args, **kwargs).filter(author_id=self.request.user.id).order_by('id')
+        return use_read_replica_if_available(
+            super().get_queryset(*args, **kwargs).filter(author_id=self.request.user.id).order_by('id'),
+        )
 
     def get_object(self):
         try:
