@@ -5,6 +5,7 @@ import logging
 
 from django.conf import settings
 from django.utils import timezone
+from edx_django_utils.db.read_replica import use_read_replica_if_available
 
 from eox_nelp.edxapp_wrapper.bulk_email import CourseEmailTemplate, get_course_email_context
 from eox_nelp.edxapp_wrapper.student import CourseEnrollment
@@ -24,7 +25,9 @@ def notify_upcoming_course_due_date(upcoming_course_due_date):
         upcoming_course_due_date (UpcomingCourseDate): UpcomingCourseDate object to sent emails.
     """
     subsection_key_string = str(upcoming_course_due_date.location_id)
-    enrollments_qs = CourseEnrollment.objects.filter(course__id=upcoming_course_due_date.course_id, is_active=True)
+    enrollments_qs = use_read_replica_if_available(
+        CourseEnrollment.objects.filter(course__id=upcoming_course_due_date.course_id, is_active=True),
+    )
     recipient_emails = [enrollment.user.email for enrollment in enrollments_qs if enrollment.user.email]
 
     subsection_xblock = get_xblock_from_usage_key_string(subsection_key_string)

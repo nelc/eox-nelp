@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.utils.decorators import method_decorator
 from django.views import View
+from edx_django_utils.db.read_replica import use_read_replica_if_available
 
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
 from eox_nelp.payment_notifications.models import PaymentNotification
@@ -72,8 +73,10 @@ def get_payment_notifications_context(request):
         user_id = request.GET.get("showpaymentnotificationsforuser", user_id)
         count_view = False
 
-    all_notifications_for_user = PaymentNotification.objects.filter(  # pylint: disable=no-member
-        cdtrans_lms_user_id=user_id
+    all_notifications_for_user = use_read_replica_if_available(
+        PaymentNotification.objects.filter(  # pylint: disable=no-member
+            cdtrans_lms_user_id=user_id,
+        ),
     )
     if count_view:
         for notification in all_notifications_for_user:

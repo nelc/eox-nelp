@@ -64,7 +64,8 @@ class TestGetInstructorsMetric(unittest.TestCase):
         CourseAccessRole.reset_mock()
         cache.clear()
 
-    def test_get_instructors_metric(self):
+    @patch("eox_nelp.stats.metrics.use_read_replica_if_available")
+    def test_get_instructors_metric(self, use_read_replica_if_available_mock):
         """Test that the function is getting the information through the CourseAccessRole model.
 
         Expected behavior:
@@ -76,6 +77,7 @@ class TestGetInstructorsMetric(unittest.TestCase):
             - The count method was called once.
         """
         tenant = "http://test.com"
+        use_read_replica_if_available_mock.side_effect = lambda x: x
         filter_result = CourseAccessRole.objects.filter.return_value
         values_result = filter_result.values.return_value
         distinct_result = values_result.distinct.return_value
@@ -100,9 +102,12 @@ class TestGetLearnersMetric(unittest.TestCase):
         CourseEnrollment.reset_mock()
         cache.clear()
 
+    @patch("eox_nelp.stats.metrics.use_read_replica_if_available")
     @patch("eox_nelp.stats.metrics.get_current_request")
     @patch("eox_nelp.stats.metrics.get_cached_courses")
-    def test_get_learners_metric(self, get_cached_courses_mock, get_current_request_mock):
+    def test_get_learners_metric(
+        self, get_cached_courses_mock, get_current_request_mock, use_read_replica_if_available_mock
+    ):
         """Test that the function is getting the information through the CourseEnrollment model.
 
         Expected behavior:
@@ -114,6 +119,7 @@ class TestGetLearnersMetric(unittest.TestCase):
             - The count method was called once.
         """
         tenant = "http://test.com"
+        use_read_replica_if_available_mock.side_effect = lambda x: x
         get_current_request_mock.return_value.site = tenant
         filter_result = CourseEnrollment.objects.filter.return_value
         exclude_result = filter_result.exclude.return_value
@@ -268,6 +274,10 @@ class TestGetCourseMetrics(unittest.TestCase):
         distinct_result = values_result.distinct.return_value
         distinct_result.count.return_value = self.expected_returned_roles
 
+        self.use_read_replica_if_available_patch = patch("eox_nelp.stats.metrics.use_read_replica_if_available")
+        use_read_replica_if_available_mock = self.use_read_replica_if_available_patch.start()
+        use_read_replica_if_available_mock.side_effect = lambda x: x
+
         # this block use the GeneratedCertificates django test model defined
         user, _ = User.objects.get_or_create(username="vader")
         user2, _ = User.objects.get_or_create(username="vader2")
@@ -304,6 +314,7 @@ class TestGetCourseMetrics(unittest.TestCase):
         CourseEnrollment.reset_mock()
         modulestore.reset_mock()
         cache.clear()
+        self.use_read_replica_if_available_patch.stop()
 
     def test_get_right_id(self):
         """Based on the initial conditions, this check that the course metrics has the expected id.

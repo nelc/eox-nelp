@@ -10,6 +10,7 @@ functions:
 """
 from crum import get_current_request
 from django.conf import settings
+from edx_django_utils.db.read_replica import use_read_replica_if_available
 from eox_core.edxapp_wrapper.certificates import get_generated_certificate
 from eox_core.edxapp_wrapper.users import get_user_signup_source
 
@@ -71,12 +72,16 @@ def get_course_metrics(course_key):
             if component.block_type in allowed_block_types:
                 components[component.block_type] = components.get(component.block_type, 0) + 1
 
-    instructors = CourseAccessRole.objects.filter(course_id=course_key).values('user').distinct().count()
-    learners = CourseEnrollment.objects.filter(
-        course=course_key,
-        user__is_staff=False,
-        user__is_superuser=False
-    ).values('user').distinct().count()
+    instructors = use_read_replica_if_available(
+        CourseAccessRole.objects.filter(course_id=course_key).values('user').distinct(),
+    ).count()
+    learners = use_read_replica_if_available(
+        CourseEnrollment.objects.filter(
+            course=course_key,
+            user__is_staff=False,
+            user__is_superuser=False,
+        ).values('user').distinct(),
+    ).count()
     certificates = get_course_certificates_metric(course_key)
 
     return {
@@ -105,19 +110,22 @@ def get_learners_metric(tenant):
     """
     request = get_current_request()
     tenant_courses = get_cached_courses(tenant)
-
-    users_from_signup_source = UserSignupSource.objects.filter(
-        site=str(request.site),
-        user__is_staff=False,
-        user__is_superuser=False,
-    ).values_list("user", flat=True).distinct()
-    total_enrollments = CourseEnrollment.objects.filter(
-        course__in=tenant_courses,
-        user__is_staff=False,
-        user__is_superuser=False,
-    ).exclude(
-        user__in=users_from_signup_source,
-    ).values('user').distinct().count()
+    users_from_signup_source = use_read_replica_if_available(
+        UserSignupSource.objects.filter(
+            site=str(request.site),
+            user__is_staff=False,
+            user__is_superuser=False,
+        ).values_list("user", flat=True).distinct(),
+    )
+    total_enrollments = use_read_replica_if_available(
+        CourseEnrollment.objects.filter(
+            course__in=tenant_courses,
+            user__is_staff=False,
+            user__is_superuser=False,
+        ).exclude(
+            user__in=users_from_signup_source,
+        ).values('user').distinct(),
+    ).count()
 
     return total_enrollments + users_from_signup_source.count()
 
@@ -135,7 +143,9 @@ def get_instructors_metric(tenant):  # pylint: disable=unused-argument
     """
     current_site_orgs = configuration_helpers.get_current_site_orgs()
 
-    return CourseAccessRole.objects.filter(org__in=current_site_orgs).values('user').distinct().count()
+    return use_read_replica_if_available(
+        CourseAccessRole.objects.filter(org__in=current_site_orgs).values('user').distinct(),
+    ).count()
 
 
 @cache_method
@@ -181,8 +191,8 @@ def get_course_certificates_metric(course_key):
         }
     """
     certificates = {}
-    course_certificates_qs = GeneratedCertificate.objects.filter(
-        course_id=course_key,
+    course_certificates_qs = use_read_replica_if_available(
+        GeneratedCertificate.objects.filter(course_id=course_key),
     )
     cert_statuses = [cert["status"] for cert in course_certificates_qs.values("status").distinct()]
 

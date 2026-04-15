@@ -20,6 +20,7 @@ from crum import get_current_user
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.dispatch import receiver
+from edx_django_utils.db.read_replica import use_read_replica_if_available
 from eox_core.edxapp_wrapper.grades import get_course_grade_factory
 from eox_core.edxapp_wrapper.users import get_user_signup_source
 from eox_tenant.tenant_wise.proxies import TenantSiteConfigProxy
@@ -282,10 +283,12 @@ def update_payment_notifications(instance, **kwargs):  # pylint: disable=unused-
     user = instance.user
     course_key = instance.course_id
 
-    payment_notifications = PaymentNotification.objects.filter(  # pylint: disable=no-member
-        cdtrans_lms_user_id=user.id,
-        cdtrans_course_id=str(course_key),
-        internal_status="case_1",
+    payment_notifications = use_read_replica_if_available(
+        PaymentNotification.objects.filter(  # pylint: disable=no-member
+            cdtrans_lms_user_id=user.id,
+            cdtrans_course_id=str(course_key),
+            internal_status="case_1",
+        ),
     )
 
     for payment_notification in payment_notifications:
