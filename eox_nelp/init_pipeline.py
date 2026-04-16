@@ -167,7 +167,6 @@ def disconnect_update_last_login_signal():
     """
     # pylint: disable=import-outside-toplevel
     from django.conf import settings
-    from django.contrib.auth.models import update_last_login
     from django.contrib.auth.signals import user_logged_in
     if getattr(settings, "DISABLE_UPDATE_LAST_LOGIN_SIGNAL", False):
-        user_logged_in.disconnect(update_last_login)
+        user_logged_in.disconnect(dispatch_uid="update_last_login")
