@@ -51,6 +51,7 @@ def run_init_pipeline():
     patch_generate_password()
     patch_registration_form_factory()
     patch_form_fields_getattr()
+    disconnect_update_last_login_signal()
 
 
 def patch_user_gender_choices():
@@ -155,3 +156,18 @@ def patch_form_fields_getattr():
     from eox_nelp.edxapp_wrapper.user_authn import form_fields
     from eox_nelp.user_authn.api.patches import form_field_getattr_patch
     setattr(form_fields, "__getattr__", form_field_getattr_patch)
+
+
+def disconnect_update_last_login_signal():
+    """
+    Disconnects the `update_last_login` signal handler from the `user_logged_in` signal to prevent
+    automatic updates to the user's last login timestamp upon authentication. This is necessary
+    to maintain accurate tracking of user activity without interference from default signal behavior.
+    https://github.com/django/django/blob/86cea4145dcd870231ea81f3cfe78fcbe02dbae4/django/contrib/auth/apps.py#L32
+    """
+    # pylint: disable=import-outside-toplevel
+    from django.conf import settings
+    from django.contrib.auth.models import update_last_login
+    from django.contrib.auth.signals import user_logged_in
+    if getattr(settings, "DISABLE_UPDATE_LAST_LOGIN_SIGNAL", False):
+        user_logged_in.disconnect(update_last_login)
