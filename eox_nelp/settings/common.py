@@ -67,7 +67,7 @@ def plugin_settings(settings):
     settings.BULK_EMAIL_DEFAULT_RETRY_DELAY = 30
     settings.BULK_EMAIL_MAX_RETRIES = 3
 
-    if COURSE_CREATOR_APP not in settings.INSTALLED_APPS:
+    if hasattr(settings, "INSTALLED_APPS") and COURSE_CREATOR_APP not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(COURSE_CREATOR_APP)
     if find_spec(JSON_API_REST_FRAMEWORK) and JSON_API_REST_FRAMEWORK not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(JSON_API_REST_FRAMEWORK)
