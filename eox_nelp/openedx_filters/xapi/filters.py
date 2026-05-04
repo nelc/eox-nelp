@@ -23,42 +23,49 @@ User = get_user_model()
 
 
 class XApiActorFilter(PipelineStep):
-    """This filter modifies the given actor by adding the username.
+    """
+    This filter modifies the xAPI actor to use 'account' as the Inverse Functional Identifier (IFI).
 
-    Setting XAPI_AGENT_IFI_TYPE = "mbox" is required in order to get the compatible actor, for
-    details please check the event-routing-backends library.
-    https://github.com/openedx/event-routing-backends/blob/master/event_routing_backends/processors/xapi/transformer.py#L89
+    It prioritizes the National ID from the user's extra information. If the National ID
+    is not available, it falls back to the username. The 'name' field remains the username
+    for display purposes.
 
-    How to set:
-        OPEN_EDX_FILTERS_CONFIG = {
-            "event_routing_backends.processors.xapi.transformer.xapi_transformer.get_actor": {
-                "pipeline": ["eox_nelp.openedx_filters.xapi.filters.XApiActorFilter"],
-                "fail_silently": False,
-            }
-        }
+    The 'account' object requires:
+        - homePage: The base URL of the system.
+        - name: The unique identifier (National ID or Username).
     """
 
     def run_filter(self, transformer, result):  # pylint: disable=arguments-differ, unused-argument
-        """Extracts the email for the given result in order to get the user and returns
-        new Agent with email a name.
+        """
+        Updates the actor agent to use an account identifier based on National ID or Username.
 
         Arguments:
             transformer <XApiTransformer>: Transformer instance.
-            result <Agent>: default Actor agent of event-routing-backends
+            result <Agent>: Default Actor agent from event-routing-backends.
 
         Returns:
-            Agent: New agent with name and email if user exist otherwise given agent.
+            dict: Dictionary containing the updated Agent with account credentials.
         """
         mbox = result.mbox
         email = mbox.replace("mailto:", "") if "mailto:" in mbox else mbox
 
         try:
+            # Retrieve the user by email to access profile/extra information
             user = User.objects.get(email=email)
+            extrainfo = getattr(user, 'extrainfo', None)
+            national_id = getattr(extrainfo, 'national_id', None) if extrainfo else None
+            identifier = str(national_id) if national_id else user.username
+
             result = Agent(
-                mbox=user.email,
                 name=user.username,
+                account={
+                    "homePage": settings.LMS_ROOT_URL,  # System's home page
+                    "name": identifier
+                },
+                objectType="Agent"
             )
         except User.DoesNotExist:
+            # If user is not found, we keep the default result provided by the pipeline
             pass
 
         return {

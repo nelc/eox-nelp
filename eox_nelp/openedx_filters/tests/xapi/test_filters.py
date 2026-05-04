@@ -10,7 +10,9 @@ Classes:
 """
 import json
 
+from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt, unpack
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from mock import Mock, patch
@@ -43,13 +45,13 @@ class XApiActorFilterTestCase(TestCase):
         )
         self.username = "xapi"
         self.email = "xapi@example.com"
-        User.objects.update_or_create(username=self.username, email=self.email)
+        self.user, _ = User.objects.update_or_create(username=self.username, email=self.email)
 
     def test_user_does_not_exist(self):
         """ Test case when the user is not found by the email.
 
         Expected behavior:
-            - Returned value is the same as the given value.
+            - Returned value is the same as the given value (original Agent with mbox).
         """
         email = "invalid-email@example.com"
         actor = Agent(
@@ -73,12 +75,15 @@ class XApiActorFilterTestCase(TestCase):
 
         self.assertRaises(TypeError, self.filter.run_filter, actor)
 
-    def test_update_given_actor(self):
-        """ Test case when the result is updated with the username.
+    @override_settings(LMS_ROOT_URL="https://lms.example.com")
+    def test_update_given_actor_with_username_fallback(self):
+        """ Test case when the user exists but has no national_id.
 
         Expected behavior:
-            - Returned value contains right mbox value.
-            - Returned value contains right name value.
+            - Returned value contains the right name value.
+            - Returned value contains the right account homePage value.
+            - Returned value contains the username as the account name (fallback).
+            - Returned value does not contain the mbox attribute.
         """
         actor = Agent(
             mbox=self.email,
@@ -86,8 +91,37 @@ class XApiActorFilterTestCase(TestCase):
 
         actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
 
-        self.assertEqual(f"mailto:{self.email}", actor.mbox)
         self.assertEqual(self.username, actor.name)
+        self.assertEqual(settings.LMS_ROOT_URL, actor.account.home_page)
+        self.assertEqual(self.username, actor.account.name)
+        self.assertIsNone(getattr(actor, 'mbox', None))
+
+    @override_settings(LMS_ROOT_URL="https://lms.example.com")
+    def test_update_given_actor_with_national_id(self):
+        """ Test case when the user exists and has a national_id in extrainfo.
+
+        Expected behavior:
+            - Returned value contains the right name value.
+            - Returned value contains the national_id as the account name.
+            - Returned value contains the right account homePage value.
+        """
+        national_id = "123456789"
+        ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
+            user=self.user,
+            arabic_name="مسؤل",
+            national_id=national_id,
+            occupation="student",
+        )
+
+        actor = Agent(
+            mbox=self.email,
+        )
+
+        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+
+        self.assertEqual(self.username, actor.name)
+        self.assertEqual(national_id, actor.account.name)
+        self.assertEqual(settings.LMS_ROOT_URL, actor.account.home_page)
 
 
 class XApiCourseObjectFilterTestCase(TestCase):
