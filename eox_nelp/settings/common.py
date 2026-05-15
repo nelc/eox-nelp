@@ -74,6 +74,8 @@ def plugin_settings(settings):
     if find_spec('eox_audit_model') and EOX_AUDIT_MODEL_APP not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(EOX_AUDIT_MODEL_APP)
 
+    settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['programs_lookup'] = '300/minute'
+
     try:
         payments_notifications_context = (
             'eox_nelp.payment_notifications.context_processor.payments_notifications_context'

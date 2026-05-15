@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from eox_nelp.edxapp_wrapper.course_api import CourseDetailSerializer, CourseListView
@@ -168,6 +169,8 @@ class ProgramsListView(CourseListView):
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated, ProgramsLookupPermission]
     serializer_class = ProgramLookupSerializer
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'programs_lookup'
 
     @require_national_id_query_param()
     def get(self, request, *args, **kwargs):
