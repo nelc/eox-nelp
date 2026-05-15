@@ -123,6 +123,7 @@ REST_FRAMEWORK = {
         'user': '60/minute',
         'service_user': '800/minute',
         'registration_validation': '30/minute',
+        'programs_lookup': '300/minute',
     },
 }
 EVENT_TRACKING_ENABLED = True
