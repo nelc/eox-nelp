@@ -4,6 +4,8 @@ import json
 
 from django.conf import settings
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from eox_theming.configuration import ThemingConfiguration as theming
 from rest_framework import status
 
@@ -45,7 +47,7 @@ class NelpMFEConfigView(MFEConfigView):
     }
     ```
     """
-
+    @method_decorator(cache_page(settings.EOX_NELP_MFE_CONFIG_API_CACHE_TIMEOUT))
     def get(self, request):
         """
         Return the MFE configuration by NELP(adding custom nelp fields).
