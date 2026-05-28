@@ -212,6 +212,28 @@ class UnitExperienceTestMixin(ExperienceTestMixin):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), self.base_data)
 
+    @override_settings(EOX_NELP_EXPERIENCE_CACHE_ENABLED=True)
+    @patch("eox_nelp.course_experience.api.v1.views.ModelViewSet.get_object")
+    def test_get_specific_item_id_cached_on(self, mock_get_object):
+        """
+        Test a  get  request to the detail endpoint for the desired view.
+        Expected behavior:
+            - super get_object is not called because the object is retrieved from cache.
+            - Return expected content type.
+            - Status code 200.
+            - Match the response of item_id is eqal to the expected.
+        """
+
+        url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
+        expected_data = self.base_data.copy()
+        expected_data["data"]["id"] = None # element by cache does not have id from db.
+        response = self.client.get(url_endpoint)
+
+        mock_get_object.assert_not_called()
+        self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertDictEqual(response.json(), expected_data)
+
     def test_get_wrong_item_id(self):
         """
         Test a  get  request to the detail endpoint for units views.
@@ -373,9 +395,32 @@ class CourseExperienceTestMixin(ExperienceTestMixin):
         url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
 
         response = self.client.get(url_endpoint)
+
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), self.base_data)
+
+    @override_settings(EOX_NELP_EXPERIENCE_CACHE_ENABLED=True)
+    @patch("eox_nelp.course_experience.api.v1.views.ModelViewSet.get_object")
+    def test_get_specific_course_id_cached_on(self, mock_get_object):
+        """
+        Test a  get  request to the detail endpoint for the desired view.
+        Expected behavior:
+            - super get_object is not called because the object is retrieved from cache.
+            - Return expected content type.
+            - Status code 200.
+            - Match the response object_key with the object_id passed Using the  url.
+        """
+        url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
+        expected_data = self.base_data.copy()
+        expected_data["data"]["id"] = None # element by cache does not have id from
+
+        response = self.client.get(url_endpoint)
+
+        mock_get_object.assert_not_called()
+        self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), expected_data)
 
     def test_get_wrong_course_id(self):
         """

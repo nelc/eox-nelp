@@ -120,10 +120,11 @@ class ExperienceView(BaseJsonAPIView):
             target_id = self.request.parser_context["kwargs"][target]
             user_id = self.request.user.id
             cached = get_experience_cache(kind, user_id, target_id)
-            if cached is not None:
+            if cached:
                 model_class = self.get_serializer().Meta.model
                 model_fields = {f.name for f in model_class._meta.fields}  # pylint: disable=protected-access
                 instance_data = {k: v for k, v in cached.items() if k in model_fields}
+                instance_data[target] = target_id
                 instance_data["course_id_id"] = instance_data.pop("course_id", None)
                 instance_data["author_id"] = user_id
                 return model_class(**instance_data)
