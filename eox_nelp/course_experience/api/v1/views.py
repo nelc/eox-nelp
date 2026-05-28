@@ -34,6 +34,7 @@ from rest_framework_json_api.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework_json_api.schemas.openapi import AutoSchema
 from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
 
+from eox_nelp.course_experience.cache import get_experience_cache, is_experience_cache_enabled, set_experience_cache
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
     LikeDislikeCourse,
@@ -42,7 +43,6 @@ from eox_nelp.course_experience.models import (
     ReportUnit,
 )
 from eox_nelp.course_experience.tasks import persist_experience_to_db
-from eox_nelp.course_experience.cache import is_experience_cache_enabled, get_experience_cache, set_experience_cache
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 
 from .filters import FeedbackCourseFieldsFilter
@@ -122,7 +122,7 @@ class ExperienceView(BaseJsonAPIView):
             cached = get_experience_cache(kind, user_id, target_id)
             if cached is not None:
                 model_class = self.get_serializer().Meta.model
-                model_fields = {f.name for f in model_class._meta.fields}
+                model_fields = {f.name for f in model_class._meta.fields}  # pylint: disable=protected-access
                 instance_data = {k: v for k, v in cached.items() if k in model_fields}
                 instance_data["course_id_id"] = instance_data.pop("course_id", None)
                 instance_data["author_id"] = user_id
@@ -189,7 +189,7 @@ class ExperienceView(BaseJsonAPIView):
             request.data["author"] = f'{{"type": "User", "id": "{request.user.id}"}}'
         return request
 
-    def _get_kind_and_target(self, data=None, kwargs=None):
+    def _get_kind_and_target(self):
         """
         Infer kind and target_id using resource_name and lookup_field.
         """
@@ -216,6 +216,7 @@ class ExperienceView(BaseJsonAPIView):
         super().perform_update(serializer)
 
     def update_create_experience_cache(self, serializer):
+        """Update the cache with the new experience data and schedule a task to persist it to the database."""
         kind, target = self._get_kind_and_target()
         value = serializer.validated_data.copy()
         value.update(self.request.parser_context["kwargs"])
@@ -225,6 +226,7 @@ class ExperienceView(BaseJsonAPIView):
         user_id = self.request.user.id
         set_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
+
 
 class UnitExperienceView(ExperienceView):
     """Class with  Experience view for units.

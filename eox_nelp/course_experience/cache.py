@@ -1,6 +1,8 @@
-from django.core.cache import cache
-from django.conf import settings
+"""Utility functions for caching user experience data (likes, feedback, reports) in Django cache framework."""
 import json
+
+from django.conf import settings
+from django.core.cache import cache
 
 
 def is_experience_cache_enabled():

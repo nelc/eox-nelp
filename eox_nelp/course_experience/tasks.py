@@ -1,7 +1,9 @@
+"""Celery tasks for asynchronously persisting experience data to the database."""
 import logging
 
 from celery import shared_task
-from .models import LikeDislikeUnit, LikeDislikeCourse, FeedbackUnit, FeedbackCourse, ReportUnit, ReportCourse
+
+from .models import FeedbackCourse, FeedbackUnit, LikeDislikeCourse, LikeDislikeUnit, ReportCourse, ReportUnit
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +12,8 @@ logger = logging.getLogger(__name__)
 def persist_experience_to_db(kind, user_id, target_id, value):
     """Persist experience data to the database. This is intended to be called asynchronously after updating cache."""
     logger.info(
-        f"[persist_experience_to_db] kind={kind}, user_id={user_id}, target_id={target_id}, value={value}"
+        "[persist_experience_to_db] kind=%s, user_id=%s, target_id=%s, value=%s",
+        kind, user_id, target_id, value,
     )
     model_map = {
         "LikeDislikeUnit": LikeDislikeUnit,
@@ -22,7 +25,7 @@ def persist_experience_to_db(kind, user_id, target_id, value):
     }
     model = model_map.get(kind)
     if not model:
-        logger.warning(f"[persist_experience_to_db] Unknown kind: {kind}")
+        logger.warning("[persist_experience_to_db] Unknown kind: %s", kind)
         return
 
     # Prepare filter and defaults based on kind
