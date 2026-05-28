@@ -116,7 +116,8 @@ class ExperienceView(BaseJsonAPIView):
 
     def get_object(self):
         if is_experience_cache_enabled():
-            kind, target_id = self._get_kind_and_target()
+            kind, target = self._get_kind_and_target()
+            target_id = self.request.parser_context["kwargs"][target]
             user_id = self.request.user.id
             cached = get_experience_cache(kind, user_id, target_id)
             if cached is not None:
