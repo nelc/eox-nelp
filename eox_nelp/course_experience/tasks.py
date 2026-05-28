@@ -1,33 +1,37 @@
+import logging
+
 from celery import shared_task
-from django.contrib.auth import get_user_model
 from .models import LikeDislikeUnit, LikeDislikeCourse, FeedbackUnit, FeedbackCourse, ReportUnit, ReportCourse
 
-User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 @shared_task
 def persist_experience_to_db(kind, user_id, target_id, value):
     """Persist experience data to the database. This is intended to be called asynchronously after updating cache."""
-    user = User.objects.get(id=user_id)
+    logger.info(
+        f"[persist_experience_to_db] kind={kind}, user_id={user_id}, target_id={target_id}, value={value}"
+    )
     model_map = {
-        "like_unit": LikeDislikeUnit,
-        "like_course": LikeDislikeCourse,
-        "feedback_unit": FeedbackUnit,
-        "feedback_course": FeedbackCourse,
-        "report_unit": ReportUnit,
-        "report_course": ReportCourse,
+        "LikeDislikeUnit": LikeDislikeUnit,
+        "LikeDislikeCourse": LikeDislikeCourse,
+        "FeedbackUnit": FeedbackUnit,
+        "FeedbackCourse": FeedbackCourse,
+        "ReportUnit": ReportUnit,
+        "ReportCourse": ReportCourse,
     }
     model = model_map.get(kind)
     if not model:
+        logger.warning(f"[persist_experience_to_db] Unknown kind: {kind}")
         return
 
     # Prepare filter and defaults based on kind
-    filter_kwargs = {"author": user}
-    if "unit" in kind:
+    filter_kwargs = {"author_id": user_id}
+    if "Unit" in kind:
         filter_kwargs["item_id"] = target_id
     else:
-        filter_kwargs["course_id"] = target_id
-
+        filter_kwargs["course_id_id"] = target_id
+    value["course_id_id"] = value.pop("course_id", None)
     # Save or update
     model.objects.update_or_create(
         defaults=value,

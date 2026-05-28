@@ -17,6 +17,7 @@ def experience_cache_key(kind, user_id, target_id):
 
 
 def set_experience_cache(kind, user_id, target_id, value):
+    value["course_id"] = str(value["course_id"])
     """Set experience data in cache."""
     cache.set(
         experience_cache_key(kind, user_id, target_id),

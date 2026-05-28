@@ -193,21 +193,15 @@ class ExperienceView(BaseJsonAPIView):
         Infer kind and target_id using resource_name and lookup_field.
         """
         kind = getattr(self, "resource_name", None)
-        target_id = getattr(self, "lookup_field", None)
-        if not kind or not target_id:
+        target = getattr(self, "lookup_field", None)
+        if not kind or not target:
             raise ValueError("resource_name and lookup_field must be defined in the view.")
-        return kind, target_id
+        return kind, target
 
     def perform_create(self, serializer):
         """Handle the creation of a new experience. Use cache if enabled, otherwise save to DB."""
         if is_experience_cache_enabled():
-            kind, target_id = self._get_kind_and_target()
-            user_id = self.request.user.id
-            value = serializer.validated_data.copy()
-            value["course_id"] = str(value["course_id"])
-            value.pop("author", None)
-            set_experience_cache(kind, user_id, target_id, value)
-            persist_experience_to_db.delay(kind, user_id, target_id, value)
+            self.update_create_experience_cache(serializer)
             return
         # Only save to DB if cache is disabled
         super().perform_create(serializer)
@@ -215,16 +209,20 @@ class ExperienceView(BaseJsonAPIView):
     def perform_update(self, serializer):
         """Handle the update of an existing experience. Use cache if enabled, otherwise save to DB."""
         if is_experience_cache_enabled():
-            kind, target_id = self._get_kind_and_target()
-            user_id = self.request.user.id
-            value = serializer.validated_data.copy()
-            value.pop("author", None)
-            set_experience_cache(kind, user_id, target_id, value)
-            persist_experience_to_db.delay(kind, user_id, target_id, value)
+            self.update_create_experience_cache(serializer)
             return
         # Only save to DB if cache is disabled
         super().perform_update(serializer)
 
+    def update_create_experience_cache(self, serializer):
+        kind, target = self._get_kind_and_target()
+        value = serializer.validated_data.copy()
+        target_id = value.get(target)
+        user_id = self.request.user.id
+        value.pop("author", None)
+        value["course_id"] = str(value["course_id"])
+        set_experience_cache(kind, user_id, target_id, value)
+        persist_experience_to_db.delay(kind, user_id, target_id, value)
 
 class UnitExperienceView(ExperienceView):
     """Class with  Experience view for units.
