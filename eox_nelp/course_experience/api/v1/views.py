@@ -41,6 +41,8 @@ from eox_nelp.course_experience.models import (
     ReportCourse,
     ReportUnit,
 )
+from eox_nelp.course_experience.tasks import persist_experience_to_db
+from eox_nelp.course_experience.cache import is_experience_cache_enabled, get_experience_cache, set_experience_cache
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 
 from .filters import FeedbackCourseFieldsFilter
@@ -113,6 +115,13 @@ class ExperienceView(BaseJsonAPIView):
         )
 
     def get_object(self):
+        if is_experience_cache_enabled():
+            kind, target_id = self._get_kind_and_target()
+            user_id = self.request.user.id
+            cached = get_experience_cache(kind, user_id, target_id)
+            if cached is not None:
+                # You may want to adapt this to your serializer/response format
+                return cached
         try:
             return super().get_object()
         except InvalidKeyError as exc:
@@ -174,6 +183,42 @@ class ExperienceView(BaseJsonAPIView):
         else:
             request.data["author"] = f'{{"type": "User", "id": "{request.user.id}"}}'
         return request
+
+    def _get_kind_and_target(self, data=None, kwargs=None):
+        """
+        Infer kind and target_id using resource_name and lookup_field.
+        """
+        kind = getattr(self, "resource_name", None)
+        target_id = getattr(self, "lookup_field", None)
+        if not kind or not target_id:
+            raise ValueError("resource_name and lookup_field must be defined in the view.")
+        return kind, target_id
+
+    def perform_create(self, serializer):
+        """Handle the creation of a new experience. Use cache if enabled, otherwise save to DB."""
+        if is_experience_cache_enabled():
+            kind, target_id = self._get_kind_and_target()
+            user_id = self.request.user.id
+            value = serializer.validated_data.copy()
+            value.pop("author", None)
+            set_experience_cache(kind, user_id, target_id, value)
+            persist_experience_to_db.delay(kind, user_id, target_id, value)
+            return
+        # Only save to DB if cache is disabled
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        """Handle the update of an existing experience. Use cache if enabled, otherwise save to DB."""
+        if is_experience_cache_enabled():
+            kind, target_id = self._get_kind_and_target()
+            user_id = self.request.user.id
+            value = serializer.validated_data.copy()
+            value.pop("author", None)
+            set_experience_cache(kind, user_id, target_id, value)
+            persist_experience_to_db.delay(kind, user_id, target_id, value)
+            return
+        # Only save to DB if cache is disabled
+        super().perform_update(serializer)
 
 
 class UnitExperienceView(ExperienceView):
