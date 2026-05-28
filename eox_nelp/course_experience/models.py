@@ -127,6 +127,9 @@ class LikeDislikeUnit(BaseLikeDislike):
     class Meta:
         """Set constrain for author an item id"""
         unique_together = [["author", "item_id"]]
+        indexes = [
+            models.Index(fields=["author", "item_id"], name="likedislike_author_item_idx"),
+        ]
 
 
 class LikeDislikeCourse(BaseLikeDislike):
@@ -136,6 +139,9 @@ class LikeDislikeCourse(BaseLikeDislike):
     class Meta:
         """Set constrain for author an course id"""
         unique_together = [["author", "course_id"]]
+        indexes = [
+            models.Index(fields=["author", "course_id"], name="likedislike_author_course_idx"),
+        ]
 
 
 class ReportUnit(BaseReport):
@@ -149,6 +155,9 @@ class ReportUnit(BaseReport):
     class Meta:
         """Set constrain for author an item id"""
         unique_together = [["author", "item_id"]]
+        indexes = [
+            models.Index(fields=["author", "item_id"], name="report_author_item_idx"),
+        ]
 
 
 class ReportCourse(BaseReport):
@@ -158,6 +167,9 @@ class ReportCourse(BaseReport):
     class Meta:
         """Set constrain for author an course id"""
         unique_together = [["author", "course_id"]]
+        indexes = [
+            models.Index(fields=["author", "course_id"], name="report_author_course_idx"),
+        ]
 
 
 class FeedbackUnit(BaseFeedback):
@@ -171,6 +183,9 @@ class FeedbackUnit(BaseFeedback):
     class Meta:
         """Set constrain for author an item id"""
         unique_together = [["author", "item_id"]]
+        indexes = [
+            models.Index(fields=["author", "item_id"], name="feedback_author_item_idx"),
+        ]
 
 
 class FeedbackCourse(BaseFeedback):
@@ -187,3 +202,6 @@ class FeedbackCourse(BaseFeedback):
     class Meta:
         """Set constrain for author an course id"""
         unique_together = [["author", "course_id"]]
+        indexes = [
+            models.Index(fields=["author", "course_id"], name="feedback_author_course_idx"),
+        ]
