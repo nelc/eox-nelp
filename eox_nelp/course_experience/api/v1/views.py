@@ -200,6 +200,7 @@ class ExperienceView(BaseJsonAPIView):
             kind, target_id = self._get_kind_and_target()
             user_id = self.request.user.id
             value = serializer.validated_data.copy()
+            value["course_id"] = str(value["course_id"])
             value.pop("author", None)
             set_experience_cache(kind, user_id, target_id, value)
             persist_experience_to_db.delay(kind, user_id, target_id, value)
