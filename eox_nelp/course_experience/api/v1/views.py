@@ -217,10 +217,11 @@ class ExperienceView(BaseJsonAPIView):
     def update_create_experience_cache(self, serializer):
         kind, target = self._get_kind_and_target()
         value = serializer.validated_data.copy()
+        value.update(self.request.parser_context["kwargs"])
+        value.pop("author", None)
+        value = {k: str(v) for k, v in value.items()}
         target_id = value.get(target)
         user_id = self.request.user.id
-        value.pop("author", None)
-        value["course_id"] = str(value["course_id"])
         set_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
 
