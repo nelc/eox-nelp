@@ -236,7 +236,7 @@ class ExperienceView(BaseJsonAPIView):
         target_id = value.get(target)
         user_id = self.request.user.id
 
-        setattr(self.serializer, "instance", self.create_memory_instance(value, target, target_id, user_id))
+        setattr(serializer, "instance", self.create_memory_instance(value, target, target_id, user_id))
         set_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
 
