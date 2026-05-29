@@ -177,7 +177,7 @@ class ExperienceTestMixin:
 
     @override_settings(EOX_NELP_EXPERIENCE_CACHE_ENABLED=True)
     @patch("eox_nelp.course_experience.api.v1.views.persist_experience_to_db")
-    def test_patch_object_form_data_cache_on(self, persist_experience_to_db):
+    def test_patch_object_form_data_cache_on(self, persist_experience_to_db_mock):
         """
         Test a  patch  request to the detail endpoint for the desired view
         using form data (type document in browser).
@@ -193,7 +193,7 @@ class ExperienceTestMixin:
         expected_data["data"]["id"] = None # element by cache does not have id from db.
         response = self.client.patch(url_endpoint, self.patch_data, format="multipart")
 
-        persist_experience_to_db.delay.assert_called_once()
+        persist_experience_to_db_mock.delay.assert_called_once()
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), expected_data)
@@ -313,6 +313,32 @@ class UnitExperienceTestMixin(ExperienceTestMixin):
 
         response = self.client.post(url_endpoint, self.post_data, format="json", contentType="application/json")
 
+        self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()["data"]["attributes"], expected_data["data"]["attributes"])
+        self.assertEqual(response.json()["data"]["relationships"], expected_data["data"]["relationships"])
+
+    @override_settings(EOX_NELP_EXPERIENCE_CACHE_ENABLED=True)
+    @patch("eox_nelp.course_experience.api.v1.views.persist_experience_to_db")
+    def test_post_item_id_with_cache_on(self, persist_experience_to_db_mock):
+        """
+        Test a  post  request to the list endpoint for the desired view.
+        Expected behavior:
+            - persist_experience_to_db task is called once to persist the change to db.
+            - Return expected content type.
+            - Status code 201.
+            - Check the response object item_id has the expected attributes field.
+            - Check the response object item_id has the expected relationships field.
+        """
+        url_endpoint = reverse(self.reverse_viewname_list)
+        expected_data = self.base_data.copy()
+        expected_data["data"]["attributes"].update(
+            {key: value for key, value in self.post_data.items() if key != "course_id"}
+        )
+
+        response = self.client.post(url_endpoint, self.post_data, format="json", contentType="application/json")
+
+        persist_experience_to_db_mock.delay.assert_called_once()
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.json()["data"]["attributes"], expected_data["data"]["attributes"])

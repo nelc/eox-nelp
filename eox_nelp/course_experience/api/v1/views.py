@@ -149,6 +149,9 @@ class ExperienceView(BaseJsonAPIView):
             The return of ancestor create method with the request after processing.
         """
         request = self.change_author_data_2_request_user(request)
+        if is_experience_cache_enabled():
+            partial = kwargs.pop('partial', False)
+            return Response(self.update_create_experience_cache(request, partial))
         try:
             return super().create(request, *args, **kwargs)
         except InvalidKeyError as exc:
@@ -203,15 +206,6 @@ class ExperienceView(BaseJsonAPIView):
         if not kind or not target:
             raise ValueError("resource_name and lookup_field must be defined in the view.")
         return kind, target
-
-    def perform_create(self, serializer):
-        """Handle the creation of a new experience. Use cache if enabled, otherwise save to DB."""
-        if is_experience_cache_enabled():
-            self.update_create_experience_cache(serializer)
-            return
-        # Only save to DB if cache is disabled
-        super().perform_create(serializer)
-
 
     def update_create_experience_cache(self, request, partial):
         """Update the cache with the new experience data and schedule a task to persist it to the database."""
