@@ -182,6 +182,7 @@ class ExperienceTestMixin:
         Test a  patch  request to the detail endpoint for the desired view
         using form data (type document in browser).
         Expected behavior:
+            - persist_experience_to_db task is called once to persist the change to db.
             - Return expected content type.
             - Status code 200.
             - Check the response is equal to the expected patched.
@@ -195,7 +196,6 @@ class ExperienceTestMixin:
         persist_experience_to_db.delay.assert_called_once()
         self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        breakpoint()
         self.assertEqual(response.json(), expected_data)
 
     def test_block_url_object_regex(self):

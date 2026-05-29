@@ -224,7 +224,6 @@ class ExperienceView(BaseJsonAPIView):
         serializer.is_valid(raise_exception=True)
         value = serializer.validated_data.copy()
         kind, target = self._get_kind_and_target()
-        value.update(self.request.parser_context["kwargs"])
         value.pop("author", None)
         value = {k: str(v) for k, v in value.items()}
         user_id = self.request.user.id
