@@ -223,6 +223,7 @@ class ExperienceView(BaseJsonAPIView):
         """Handle the update of an existing experience. Use cache if enabled, otherwise save to DB."""
         if is_experience_cache_enabled():
             self.update_create_experience_cache(serializer)
+            return
         # Only save to DB if cache is disabled
         super().perform_update(serializer)
 
