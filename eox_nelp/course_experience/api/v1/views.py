@@ -25,7 +25,6 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from rest_framework_json_api.django_filters import DjangoFilterBackend
 from rest_framework_json_api.filters import OrderingFilter, QueryParameterValidationFilter
 from rest_framework_json_api.metadata import JSONAPIMetadata
@@ -149,9 +148,6 @@ class ExperienceView(BaseJsonAPIView):
             The return of ancestor create method with the request after processing.
         """
         request = self.change_author_data_2_request_user(request)
-        if is_experience_cache_enabled():
-            partial = kwargs.pop('partial', False)
-            return Response(self.update_create_experience_cache(request, partial))
         try:
             return super().create(request, *args, **kwargs)
         except InvalidKeyError as exc:
@@ -172,9 +168,6 @@ class ExperienceView(BaseJsonAPIView):
             The return of ancestor update method with the request after processing.
         """
         request = self.change_author_data_2_request_user(request)
-        if is_experience_cache_enabled():
-            partial = kwargs.pop('partial', False)
-            return Response(self.update_create_experience_cache(request, partial))
         try:
             return super().update(request, *args, **kwargs)
         except InvalidKeyError as exc:
@@ -207,26 +200,33 @@ class ExperienceView(BaseJsonAPIView):
             raise ValueError("resource_name and lookup_field must be defined in the view.")
         return kind, target
 
-    def update_create_experience_cache(self, request, partial):
-        """Update the cache with the new experience data and schedule a task to persist it to the database."""
+    def perform_create(self, serializer):
+        """Handle the creation of a new experience. Use cache if enabled, otherwise save to DB."""
+        if is_experience_cache_enabled():
+            self.update_create_experience_cache(serializer)
+            return
+        # Only save to DB if cache is disabled
+        super().perform_create(serializer)
 
-        instance = self.get_object()
-        for k, v in request.data.items():
-            if k not in ["author", "course_id", "item_id"]:
-                setattr(instance, k, v)
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        value = serializer.validated_data.copy()
+    def perform_update(self, serializer):
+        """Handle the update of an existing experience. Use cache if enabled, otherwise save to DB."""
+        if is_experience_cache_enabled():
+            self.update_create_experience_cache(serializer)
+            return
+        # Only save to DB if cache is disabled
+        super().perform_update(serializer)
+
+    def update_create_experience_cache(self, serializer):
+        """Update the cache with the new experience data and schedule a task to persist it to the database."""
         kind, target = self._get_kind_and_target()
+        value = serializer.validated_data.copy()
+        value.update(self.request.parser_context.get("kwargs", {}))
         value.pop("author", None)
         value = {k: str(v) for k, v in value.items()}
-        user_id = self.request.user.id
         target_id = value.get(target)
-
+        user_id = self.request.user.id
         set_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
-
-        return serializer.data
 
 
 class UnitExperienceView(ExperienceView):
