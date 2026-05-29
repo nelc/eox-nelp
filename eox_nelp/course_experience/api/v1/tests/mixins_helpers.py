@@ -175,6 +175,29 @@ class ExperienceTestMixin:
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), expected_data)
 
+    @override_settings(EOX_NELP_EXPERIENCE_CACHE_ENABLED=True)
+    @patch("eox_nelp.course_experience.api.v1.views.persist_experience_to_db")
+    def test_patch_object_form_data_cache_on(self, persist_experience_to_db):
+        """
+        Test a  patch  request to the detail endpoint for the desired view
+        using form data (type document in browser).
+        Expected behavior:
+            - Return expected content type.
+            - Status code 200.
+            - Check the response is equal to the expected patched.
+        """
+        url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
+        expected_data = self.base_data.copy()
+        expected_data["data"]["attributes"].update(self.patch_data)
+        expected_data["data"]["id"] = None # element by cache does not have id from db.
+        response = self.client.patch(url_endpoint, self.patch_data, format="multipart")
+
+        persist_experience_to_db.delay.assert_called_once()
+        self.assertIn(response.headers["Content-Type"], RESPONSE_CONTENT_TYPES)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        breakpoint()
+        self.assertEqual(response.json(), expected_data)
+
     def test_block_url_object_regex(self):
         """
         Test block a request to the detail endpoint for the desired view
