@@ -114,20 +114,31 @@ class ExperienceView(BaseJsonAPIView):
             super().get_queryset(*args, **kwargs).filter(author_id=self.request.user.id).order_by('id'),
         )
 
+    def create_memory_instance(self, cached_value, target, target_id, user_id):
+        """Create a memory instance of the experience data. This is used when cache is enabled.
+
+        Args:
+            cached_value: The cached value of the experience data.
+            target: The target field for the experience.
+            target_id: The ID of the target.
+            user_id: The ID of the user.
+        """
+        model_class = self.get_serializer().Meta.model
+        model_fields = {f.name for f in model_class._meta.fields}  # pylint: disable=protected-access
+        instance_data = {k: v for k, v in cached_value.items() if k in model_fields}
+        instance_data[target] = target_id
+        instance_data["course_id_id"] = instance_data.pop("course_id", None)
+        instance_data["author_id"] = user_id
+        return model_class(**instance_data)
+
     def get_object(self):
         if is_experience_cache_enabled():
             kind, target = self._get_kind_and_target()
             target_id = self.request.parser_context["kwargs"][target]
             user_id = self.request.user.id
-            cached = get_experience_cache(kind, user_id, target_id)
-            if cached:
-                model_class = self.get_serializer().Meta.model
-                model_fields = {f.name for f in model_class._meta.fields}  # pylint: disable=protected-access
-                instance_data = {k: v for k, v in cached.items() if k in model_fields}
-                instance_data[target] = target_id
-                instance_data["course_id_id"] = instance_data.pop("course_id", None)
-                instance_data["author_id"] = user_id
-                return model_class(**instance_data)
+            cached_value = get_experience_cache(kind, user_id, target_id)
+            if cached_value:
+                return self.create_memory_instance(cached_value, target, target_id, user_id)
         try:
             return super().get_object()
         except InvalidKeyError as exc:
@@ -212,7 +223,6 @@ class ExperienceView(BaseJsonAPIView):
         """Handle the update of an existing experience. Use cache if enabled, otherwise save to DB."""
         if is_experience_cache_enabled():
             self.update_create_experience_cache(serializer)
-            return
         # Only save to DB if cache is disabled
         super().perform_update(serializer)
 
@@ -225,6 +235,8 @@ class ExperienceView(BaseJsonAPIView):
         value = {k: str(v) for k, v in value.items()}
         target_id = value.get(target)
         user_id = self.request.user.id
+
+        setattr(self.serializer, "instance", self.create_memory_instance(value, target, target_id, user_id))
         set_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
 
