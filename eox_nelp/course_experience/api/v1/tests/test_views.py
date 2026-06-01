@@ -6,6 +6,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from eox_nelp.course_experience.cache import upsert_experience_cache
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
     LikeDislikeCourse,
@@ -13,7 +14,6 @@ from eox_nelp.course_experience.models import (
     ReportCourse,
     ReportUnit,
 )
-from eox_nelp.course_experience.cache import upsert_experience_cache
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 
 from .mixins_helpers import (

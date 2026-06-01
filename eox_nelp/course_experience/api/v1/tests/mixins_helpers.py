@@ -190,7 +190,7 @@ class ExperienceTestMixin:
         url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
         expected_data = self.base_data.copy()
         expected_data["data"]["attributes"].update(self.patch_data)
-        expected_data["data"]["id"] = None # element by cache does not have id from db.
+        expected_data["data"]["id"] = None  # element by cache does not have id from db.
 
         response = self.client.patch(url_endpoint, self.patch_data, format="multipart")
 
@@ -250,7 +250,7 @@ class UnitExperienceTestMixin(ExperienceTestMixin):
 
         url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
         expected_data = self.base_data.copy()
-        expected_data["data"]["id"] = None # element by cache does not have id from db.
+        expected_data["data"]["id"] = None  # element by cache does not have id from db.
         response = self.client.get(url_endpoint)
 
         mock_get_object.assert_not_called()
@@ -463,7 +463,7 @@ class CourseExperienceTestMixin(ExperienceTestMixin):
         """
         url_endpoint = reverse(self.reverse_viewname_detail, kwargs=self.object_url_kwarg)
         expected_data = self.base_data.copy()
-        expected_data["data"]["id"] = None # element by cache does not have id from
+        expected_data["data"]["id"] = None  # element by cache does not have id from
 
         response = self.client.get(url_endpoint)
 

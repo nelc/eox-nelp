@@ -26,12 +26,14 @@ def set_experience_cache(kind, user_id, target_id, value):
         getattr(settings, "EOX_NELP_EXPERIENCE_CACHE_TTL", 7200),  # 2 hours default
     )
 
+
 def upsert_experience_cache(kind, user_id, target_id, value):
     """Safely set experience, only changing new values and keeping old keys."""
     existing_data = get_experience_cache(kind, user_id, target_id) or {}
     existing_data.update(value)
     set_experience_cache(kind, user_id, target_id, existing_data)
     return existing_data
+
 
 def get_experience_cache(kind, user_id, target_id):
     """Get experience data from cache."""
