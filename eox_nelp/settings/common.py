@@ -60,6 +60,8 @@ def plugin_settings(settings):
     settings.EOX_NELP_DJANGO_COMMENT_COMMON_BACKEND = 'eox_nelp.edxapp_wrapper.backends.django_comment_common_r_v1'
     settings.EOX_NELP_CONTENTSTORE = 'eox_nelp.edxapp_wrapper.backends.contentstore_r_v1'
 
+    settings.EOX_NELP_MFE_CONFIG_API_CACHE_TIMEOUT = 300
+
     settings.FUTUREX_API_URL = 'https://testing-site.com'
     settings.FUTUREX_API_CLIENT_ID = 'my-test-client-id'
     settings.FUTUREX_API_CLIENT_SECRET = 'my-test-client-secret'
