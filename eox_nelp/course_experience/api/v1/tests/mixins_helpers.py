@@ -191,6 +191,7 @@ class ExperienceTestMixin:
         expected_data = self.base_data.copy()
         expected_data["data"]["attributes"].update(self.patch_data)
         expected_data["data"]["id"] = None # element by cache does not have id from db.
+
         response = self.client.patch(url_endpoint, self.patch_data, format="multipart")
 
         persist_experience_to_db_mock.delay.assert_called_once()

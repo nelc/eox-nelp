@@ -34,7 +34,7 @@ from rest_framework_json_api.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework_json_api.schemas.openapi import AutoSchema
 from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
 
-from eox_nelp.course_experience.cache import get_experience_cache, is_experience_cache_enabled, set_experience_cache
+from eox_nelp.course_experience.cache import get_experience_cache, is_experience_cache_enabled, upsert_experience_cache
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
     LikeDislikeCourse,
@@ -237,9 +237,9 @@ class ExperienceView(BaseJsonAPIView):
         target_id = value.get(target)
         user_id = self.request.user.id
 
-        setattr(serializer, "instance", self.create_memory_instance(value, target, target_id, user_id))
-        set_experience_cache(kind, user_id, target_id, value)
+        value = upsert_experience_cache(kind, user_id, target_id, value)
         persist_experience_to_db.delay(kind, user_id, target_id, value)
+        setattr(serializer, "instance", self.create_memory_instance(value, target, target_id, user_id))
 
 
 class UnitExperienceView(ExperienceView):

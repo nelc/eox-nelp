@@ -13,7 +13,7 @@ from eox_nelp.course_experience.models import (
     ReportCourse,
     ReportUnit,
 )
-from eox_nelp.course_experience.cache import set_experience_cache
+from eox_nelp.course_experience.cache import upsert_experience_cache
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 
 from .mixins_helpers import (
@@ -53,7 +53,7 @@ class LikeDislikeUnitExperienceTestCase(UnitExperienceTestMixin, APITestCase):
             author_id=self.user.id,
             status=False,
         )
-        set_experience_cache("LikeDislikeUnit", self.user.id, BASE_ITEM_ID, {
+        upsert_experience_cache("LikeDislikeUnit", self.user.id, BASE_ITEM_ID, {
             "status": self.my_unit_like.status,
             "course_id": str(self.my_course.id),
         })
@@ -100,7 +100,7 @@ class ReportUnitExperienceTestCase(UnitExperienceTestMixin, APITestCase):
             author_id=self.user.id,
             reason="Sexual content",
         )
-        set_experience_cache("ReportUnit", self.user.id, BASE_ITEM_ID, {
+        upsert_experience_cache("ReportUnit", self.user.id, BASE_ITEM_ID, {
             "reason": self.my_unit_report.reason,
             "course_id": str(self.my_course.id),
         })
@@ -162,7 +162,7 @@ class LikeDislikeCourseExperienceTestCase(CourseExperienceTestMixin, APITestCase
             author_id=self.user.id,
             status=False,
         )
-        set_experience_cache("LikeDislikeCourse", self.user.id, str(self.my_course), {
+        upsert_experience_cache("LikeDislikeCourse", self.user.id, str(self.my_course), {
             "status": self.my_course_like.status,
             "course_id": str(self.my_course.id),
         })
@@ -208,7 +208,7 @@ class ReportCourseExperienceTestCase(CourseExperienceTestMixin, APITestCase):
             author_id=self.user.id,
             reason="Sexual content",
         )
-        set_experience_cache("ReportCourse", self.user.id, str(self.my_course), {
+        upsert_experience_cache("ReportCourse", self.user.id, str(self.my_course), {
             "reason": self.my_course_report.reason,
             "course_id": str(self.my_course.id),
         })
@@ -266,7 +266,7 @@ class FeedbackCourseExperienceTestCase(CourseExperienceTestMixin, APITestCase):
             public=True,
             recommended=False,
         )
-        set_experience_cache("FeedbackCourse", self.user.id, str(self.my_course), {
+        upsert_experience_cache("FeedbackCourse", self.user.id, str(self.my_course), {
             "feedback": self.my_course_feedback.feedback,
             "rating_content": self.my_course_feedback.rating_content,
             "rating_instructors": self.my_course_feedback.rating_instructors,
