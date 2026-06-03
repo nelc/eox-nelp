@@ -15,7 +15,6 @@ Classes:
 """
 from django.conf import settings
 from django.db import transaction
-from django.db import connection
 from django.db.models import Q
 from django.http import Http404
 from django.http.request import QueryDict
@@ -118,7 +117,6 @@ class ExperienceView(BaseJsonAPIView):
 
     def get_object(self):
         try:
-            print(f"Is inside atomic block: {connection.in_atomic_block}")
             return super().get_object()
         except InvalidKeyError as exc:
             raise Http404 from exc
@@ -138,7 +136,6 @@ class ExperienceView(BaseJsonAPIView):
             The return of ancestor create method with the request after processing.
         """
         request = self.change_author_data_2_request_user(request)
-        print(f"\nIs inside atomic block: {connection.in_atomic_block}")
         try:
             return super().create(request, *args, **kwargs)
         except InvalidKeyError as exc:
