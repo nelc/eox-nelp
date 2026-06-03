@@ -14,9 +14,11 @@ Classes:
         - PublicFeedbackCourseExperienceView: class-view(`/eox-nelp/api/experience/v1/feedback/public/courses/`)
 """
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404
 from django.http.request import QueryDict
+from django.utils.decorators import method_decorator
 from edx_django_utils.db.read_replica import use_read_replica_if_available
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
@@ -95,6 +97,7 @@ class BaseJsonAPIView(ModelViewSet):
     search_param = "filter[search]"
 
 
+@method_decorator(transaction.non_atomic_requests, name='dispatch')
 class ExperienceView(BaseJsonAPIView):
     """Class to set functionality of an ExperienceView.
 
