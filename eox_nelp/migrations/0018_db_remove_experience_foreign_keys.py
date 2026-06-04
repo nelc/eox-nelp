@@ -6,23 +6,30 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
-    dependencies = [
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('course_overviews', '0029_alter_historicalcourseoverview_options'),
-        ('eox_nelp', '0017_alter_reportunit_reason'),
-    ]
+    if getattr(settings, 'TESTING_MIGRATIONS', False):
+        dependencies = [
+            migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+            ('eox_nelp', '0017_alter_reportunit_reason'),
+        ]
+        course_overview_model = 'eox_nelp.courseoverview'
+    else:
+        dependencies = [
+            migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+            ('course_overviews', '0029_alter_historicalcourseoverview_options'),
+            ('eox_nelp', '0017_alter_reportunit_reason'),
+        ]
+        course_overview_model = 'course_overviews.courseoverview'
 
     operations = [
         migrations.AlterField(
             model_name='feedbackcourse',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
         migrations.AlterField(
             model_name='feedbackunit',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
         migrations.AlterField(
             model_name='likedislikecourse',
@@ -32,7 +39,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='likedislikecourse',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
         migrations.AlterField(
             model_name='likedislikeunit',
@@ -42,7 +49,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='likedislikeunit',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
         migrations.AlterField(
             model_name='reportcourse',
@@ -52,7 +59,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='reportcourse',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
         migrations.AlterField(
             model_name='reportunit',
@@ -62,6 +69,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='reportunit',
             name='course_id',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='course_overviews.courseoverview'),
+            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to=course_overview_model),
         ),
     ]
