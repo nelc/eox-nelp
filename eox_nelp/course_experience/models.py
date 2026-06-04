@@ -35,9 +35,9 @@ class BaseLikeDislike(models.Model):
         status<BooleanField>: True = Liked, False =d isliked and None = not-set
         course_id<Foreignkey>: Reference to a specific course.
     """
-    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, db_constraint=False)
     status = models.BooleanField(null=True)
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
 
     class Meta:
         """Set model abstract"""
@@ -60,7 +60,7 @@ class BaseReport(models.Model):
         ("OO", "Other objection"),
     ]
 
-    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, db_constraint=False)
     reason = models.CharField(
         max_length=2,
         null=True,
@@ -68,7 +68,7 @@ class BaseReport(models.Model):
         choices=REPORT_REASONS,
         default=None
     )
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
 
     class Meta:
         """Set model abstract"""
@@ -90,7 +90,7 @@ class BaseFeedback(models.Model):
     rating_content = models.IntegerField(blank=True, null=True, choices=RATING_OPTIONS)
     feedback = models.CharField(max_length=500, blank=True, null=True)
     public = models.BooleanField(null=True, default=False)
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
 
     class Meta:
         """Set model abstract"""
