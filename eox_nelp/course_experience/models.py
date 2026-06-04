@@ -86,7 +86,7 @@ class BaseFeedback(models.Model):
         public<BooleanField>: Default True, if true the user accept showing the rating.
     """
 
-    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, db_constraint=False)
     rating_content = models.IntegerField(blank=True, null=True, choices=RATING_OPTIONS)
     feedback = models.CharField(max_length=500, blank=True, null=True)
     public = models.BooleanField(null=True, default=False)
