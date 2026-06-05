@@ -37,7 +37,7 @@ class BaseLikeDislike(models.Model):
     """
     author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, db_constraint=False)
     status = models.BooleanField(null=True)
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         """Set model abstract"""
@@ -68,7 +68,7 @@ class BaseReport(models.Model):
         choices=REPORT_REASONS,
         default=None
     )
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         """Set model abstract"""
@@ -90,7 +90,7 @@ class BaseFeedback(models.Model):
     rating_content = models.IntegerField(blank=True, null=True, choices=RATING_OPTIONS)
     feedback = models.CharField(max_length=500, blank=True, null=True)
     public = models.BooleanField(null=True, default=False)
-    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL, db_constraint=False)
+    course_id = models.ForeignKey(CourseOverview, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         """Set model abstract"""
