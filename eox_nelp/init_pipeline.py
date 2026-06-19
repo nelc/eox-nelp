@@ -54,6 +54,13 @@ def run_init_pipeline():
     disconnect_update_last_login_signal()
 
 
+def run_cms_init_pipeline():
+    """
+    Executes multiple processes that must run before starting the cms django application.
+    """
+    disconnect_update_last_login_signal()
+
+
 def patch_user_gender_choices():
     """
     This overwrites the available gender choices in order to allow the Male and Female options.
