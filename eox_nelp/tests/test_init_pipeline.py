@@ -1,7 +1,7 @@
 """This file contains all the test for the init_pipeline.py file.
 
 Classes:
-    RunInitPipelineTestCase: Tests cases for run_init_pipeline method.
+    RunInitPipelineTestCase: Tests cases for run_lms_init_pipeline method.
     SetMakoTemplatesTestCase: Tests cases for set_mako_templates method.
 """
 import os
@@ -12,11 +12,11 @@ from mock import patch
 
 from eox_nelp import static as templates
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
-from eox_nelp.init_pipeline import run_init_pipeline, set_mako_templates
+from eox_nelp.init_pipeline import run_lms_init_pipeline, set_mako_templates
 
 
 class RunInitPipelineTestCase(TestCase):
-    """Test class for run_init_pipeline method."""
+    """Test class for run_lms_init_pipeline method."""
 
     @patch("eox_nelp.init_pipeline.patch_form_fields_getattr")
     @patch("eox_nelp.init_pipeline.patch_generate_password")
@@ -37,7 +37,7 @@ class RunInitPipelineTestCase(TestCase):
             - set_mako_templates_mock is called once.
             - patch_user_gender_choices_mock is called once.
         """
-        run_init_pipeline()
+        run_lms_init_pipeline()
 
         set_mako_templates_mock.assert_called_once()
         patch_user_gender_choices_mock.assert_called_once()

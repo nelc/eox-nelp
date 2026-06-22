@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 
 from django.apps import AppConfig
 
-from eox_nelp.init_pipeline import run_init_pipeline
+from eox_nelp.init_pipeline import run_cms_init_pipeline, run_lms_init_pipeline
 
 
 class EoxNelpConfig(AppConfig):
@@ -127,7 +127,7 @@ class EoxNelpConfig(AppConfig):
         """
         Method to perform actions after apps registry is ended.
         """
-        run_init_pipeline()
+        run_lms_init_pipeline()
 
 
 class EoxNelpCMSConfig(AppConfig):
@@ -169,3 +169,9 @@ class EoxNelpCMSConfig(AppConfig):
             },
         },
     }
+
+    def ready(self):
+        """
+        Method to perform actions after apps registry is ended.
+        """
+        run_cms_init_pipeline()
