@@ -3,7 +3,7 @@ This file contains all the processes that must run after app registration.
 
 Functions:
 
-    run_init_pipeline:
+    run_lms_init_pipeline:
         Executes all initialization processes required before the Django application starts.
         Acts as an entry point to trigger the patching and setup routines defined below.
 
@@ -40,7 +40,7 @@ import os
 from django.utils.translation import gettext_noop
 
 
-def run_init_pipeline():
+def run_lms_init_pipeline():
     """
     Executes multiple processes that must run before starting the django application.
     """
