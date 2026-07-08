@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
+from eox_nelp.edxapp_wrapper.course_overviews import get_course_overviews
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 
 User = get_user_model()
@@ -77,12 +78,14 @@ class UserCertificateListViewTests(APITestCase):
             "tenant": "test.openedx.io",
             "org": "test",
             "course_id": "course-v1:test+Cx105+2022_T4",
+            "course_name": "TestingCourse",
             "status": "downloadable",
             "mode": "honor",
             "certificate_url": "http://test.openedx.io/certificates/2c97649425bb49189470f05bf7d98c1a"
         }
         configuration_helpers.get_value_for_org.side_effect = [settings.SITE_NAME, settings.LMS_ROOT_URL]
         certificates_utils.get_certificate_url.return_value = "/certificates/2c97649425bb49189470f05bf7d98c1a"
+        get_course_overviews.return_value = [{"display_name": "TestingCourse"}]
 
         response = self.client.get(self.url)
 

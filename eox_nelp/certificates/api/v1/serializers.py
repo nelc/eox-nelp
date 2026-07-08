@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
+from eox_nelp.utils import get_course_from_id
 
 GeneratedCertificate = get_generated_certificate()
 
@@ -24,6 +25,7 @@ class CertificateSerializer(serializers.ModelSerializer):
     tenant = serializers.SerializerMethodField()
     org = serializers.SerializerMethodField()
     certificate_url = serializers.SerializerMethodField()
+    course_name = serializers.SerializerMethodField()
 
     class Meta:
         """Class to configure serializer with  model GeneratedCertificate"""
@@ -32,6 +34,7 @@ class CertificateSerializer(serializers.ModelSerializer):
             "tenant",
             "org",
             "course_id",
+            "course_name",
             "status",
             "mode",
             "certificate_url",
@@ -91,3 +94,17 @@ class CertificateSerializer(serializers.ModelSerializer):
         clean_path = certificate_path.lstrip('/')
 
         return f"{clean_tenant_url}/{clean_path}"
+
+    def get_course_name(self, instance):
+        """
+        Retrieve the display name of the course.
+
+        Args:
+            instance (GeneratedCertificate): The certificate instance.
+
+        Returns:
+            str: The display name of the course, or None if not found.
+        """
+        course = get_course_from_id(str(instance.course_id))
+
+        return course.get("display_name")
