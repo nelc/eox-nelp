@@ -39,6 +39,7 @@ def get_generated_certificate():
         "course_id": CourseKeyField(max_length=255, blank=True, default=None),
         "grade": models.CharField(max_length=5, blank=True, default=''),
         "status": models.CharField(max_length=32, default='unavailable'),
+        "verify_uuid": models.CharField(max_length=32, default=''),
         "mode": models.CharField(max_length=32, choices=MODES, default=MODES.honor),
         # not model fields :
         "MODES": MODES,

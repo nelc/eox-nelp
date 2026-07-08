@@ -103,6 +103,7 @@ class Migration(migrations.Migration):
                 ('course_id', opaque_keys.edx.django.models.CourseKeyField(default=None, max_length=255, blank=True)),
                 ('grade', models.CharField(default='', max_length=5, blank=True)),
                 ('status', models.CharField(default='unavailable', max_length=32)),
+                ('verify_uuid', models.CharField(max_length=32, blank=True, default='', db_index=True)),
                 ('mode', models.CharField(default='honor', max_length=32, choices=[('verified', 'verified'), ('honor', 'honor'), ('audit', 'audit'), ('professional', 'professional'), ('no-id-professional', 'no-id-professional')])),
             ],
         ),

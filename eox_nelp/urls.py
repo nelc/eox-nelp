@@ -39,5 +39,5 @@ urlpatterns = [
     ),
     path('api/users/', include('eox_nelp.users.urls', namespace='users')),
     path('api/programs/', include('eox_nelp.programs.api.urls', namespace='programs-api')),
-
+    path('api/certificates/', include('eox_nelp.certificates.api.urls', namespace='certificates-api')),
 ]
