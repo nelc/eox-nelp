@@ -17,9 +17,11 @@ from eox_core.edxapp_wrapper.enrollments import get_enrollment
 from eventtracking import tracker
 from nelc_api_clients.clients.futurex import FuturexApiClient
 from nelc_api_clients.clients.mt import MinisterOfTourismApiClient
+from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey, UsageKey
 
 from eox_nelp.edxapp_wrapper.course_blocks import get_student_module_as_dict
+from eox_nelp.edxapp_wrapper.course_modes import CourseMode
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
@@ -267,3 +269,56 @@ def set_default_advanced_modules(user_id, course_id):
     )
     course.advanced_modules = list(set(course.advanced_modules + default_modules))
     store.update_item(course, user_id)
+
+
+@shared_task
+def create_course_mode(course_id, mode_slug):
+    """
+    Asynchronous task to create a specific CourseMode for a newly created course.
+
+    This task parses the course key string, fetches the corresponding CourseOverview,
+    and creates the requested CourseMode if it doesn't already exist.
+
+    Args:
+        course_id (str): The string representation of the course key
+                              (e.g., 'course-v1:edX+DemoX+Demo_Course').
+        mode_slug (str): The slug of the mode to be created (e.g., 'audit', 'honor').
+
+    Returns:
+        None
+    """
+    try:
+        course_key = CourseKey.from_string(course_id)
+        course_overview = CourseOverview.objects.get(id=course_key)
+
+        _, created = CourseMode.objects.get_or_create(
+            course=course_overview,
+            mode_slug=mode_slug,
+            defaults={
+                'mode_display_name': course_id,
+            }
+        )
+
+        if created:
+            logger.info(
+                "Successfully created '%s' course mode for course %s",
+                mode_slug,
+                course_id
+            )
+        else:
+            logger.info(
+                "Course mode '%s' already exists for course %s",
+                mode_slug,
+                course_id
+            )
+
+    except InvalidKeyError:
+        logger.error(
+            "Cannot create course mode. Invalid course key string provided: %s",
+            course_id
+        )
+    except CourseOverview.DoesNotExist:
+        logger.error(
+            "Cannot create course mode. CourseOverview for key %s does not exist.",
+            course_id
+        )

@@ -96,6 +96,17 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
+            name='CourseMode',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('course', models.ForeignKey(to='CourseOverview', on_delete=models.DO_NOTHING, db_constraint=False, related_name='modes')),
+                ('mode_slug', models.CharField(max_length=100)),
+                ('mode_display_name', models.CharField(max_length=255)),
+                ('min_price', models.IntegerField(default=0)),
+                ('currency', models.CharField(default='usd', max_length=8)),
+            ],
+        ),
+        migrations.CreateModel(
             name='GeneratedCertificate',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
