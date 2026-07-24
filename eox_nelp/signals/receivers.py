@@ -527,6 +527,9 @@ def receive_course_created_for_modes(course, **kwargs):  # pylint: disable=unuse
     """
     default_mode_slug = getattr(settings, "DEFAULT_COURSE_MODE", "honor")
 
+    if getattr(settings, "DISABLE_DEFAULT_COURSE_MODE_TRIGGER", None):
+        return
+
     if not course or not getattr(course, 'course_key', None):
         LOGGER.warning(
             "receive_course_created_for_modes aborted: valid course data was not provided."
