@@ -29,6 +29,7 @@ from openedx_events.learning.data import CertificateData, CourseData, UserData, 
 
 from eox_nelp.edxapp_wrapper.contentstore import CourseAboutSearchIndexer
 from eox_nelp.edxapp_wrapper.modulestore import SignalHandler
+from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 from eox_nelp.external_certificates.tasks import create_external_certificate
 from eox_nelp.notifications.tasks import create_course_notifications as create_course_notifications_task
 from eox_nelp.payment_notifications.models import PaymentNotification
@@ -513,20 +514,24 @@ def receive_course_created_for_modes(course, **kwargs):  # pylint: disable=unuse
     Django signal receiver that triggers the `create_course_mode` async task
     when the `COURSE_CREATED` signal is sent.
 
-    This function listens for the `COURSE_CREATED` signal and, upon receiving it,
-    calls the asynchronous task `create_course_mode` to set a default course mode
-    for the newly created course.
+    This function listens for the `COURSE_CREATED` signal and retrieves the
+    organization-specific default course mode using `TenantSiteConfigProxy`.
+    It validates the retrieved mode against available `COURSE_ENROLLMENT_MODES`
+    and, if valid, calls the asynchronous task `create_course_mode` to set the
+    default course mode for the newly created course.
 
     Args:
         course <CourseData>: CourseData instance containing the course_key.
             https://github.com/openedx/openedx-events/blob/main/openedx_events/content_authoring/data.py
         **kwargs: Additional keyword arguments passed with the signal, if any.
 
+    Raises:
+        Exception: If the configured `DEFAULT_COURSE_MODE` for the organization
+            is not found in `settings.COURSE_ENROLLMENT_MODES`.
+
     Returns:
         None: This function does not return any value. It triggers an asynchronous task.
     """
-    default_mode_slug = getattr(settings, "DEFAULT_COURSE_MODE", "honor")
-
     if getattr(settings, "DISABLE_DEFAULT_COURSE_MODE_TRIGGER", None):
         return
 
@@ -535,6 +540,15 @@ def receive_course_created_for_modes(course, **kwargs):  # pylint: disable=unuse
             "receive_course_created_for_modes aborted: valid course data was not provided."
         )
         return
+
+    default_mode_slug = configuration_helpers.get_value_for_org(
+        course.course_key.org,
+        "DEFAULT_COURSE_MODE",
+        getattr(settings, "DEFAULT_COURSE_MODE", "honor"),
+    )
+
+    if default_mode_slug not in settings.COURSE_ENROLLMENT_MODES.keys():
+        raise Exception(f"Invalid DEFAULT_COURSE_MODE {default_mode_slug}")  # pylint: disable=broad-exception-raised
 
     LOGGER.info(
         "COURSE_CREATED signal received for course %s. Triggering create_course_mode task.",
