@@ -13,7 +13,7 @@ PIP_COMPILE = pip-compile --rebuild --upgrade $(PIP_COMPILE_OPTS)
 
 .DEFAULT_GOAL := help
 
-ifdef TOXENV
+ifdef TOX_ENV
 TOX := tox -- #to isolate each tox environment if TOXENV is defined
 endif
 
