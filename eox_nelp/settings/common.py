@@ -83,10 +83,8 @@ def plugin_settings(settings):
             'eox_nelp.payment_notifications.context_processor.payments_notifications_context'
         )
 
-        if payments_notifications_context not in settings.TEMPLATES[0]['OPTIONS']['context_processors']:
-            settings.TEMPLATES[0]['OPTIONS']['context_processors'].append(payments_notifications_context)
-        if payments_notifications_context not in settings.TEMPLATES[1]['OPTIONS']['context_processors']:
-            settings.TEMPLATES[1]['OPTIONS']['context_processors'].append(payments_notifications_context)
+        if payments_notifications_context not in settings.CONTEXT_PROCESSORS:
+            settings.CONTEXT_PROCESSORS.append(payments_notifications_context)
 
         settings.DEFAULT_TEMPLATE_ENGINE = settings.TEMPLATES[0]
     except AttributeError:
