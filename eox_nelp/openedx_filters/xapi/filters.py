@@ -35,7 +35,7 @@ class XApiActorFilter(PipelineStep):
         - name: The unique identifier (National ID or Username).
     """
 
-    def run_filter(self, transformer, result):  # pylint: disable=arguments-differ, unused-argument
+    def run_filter(self, transformer, result):  # pylint: disable=arguments-differ
         """
         Updates the actor agent to use an account identifier based on National ID or Username.
 
