@@ -46,6 +46,13 @@ class XApiActorFilterTestCase(TestCase):
         self.username = "xapi"
         self.email = "xapi@example.com"
         self.user, _ = User.objects.update_or_create(username=self.username, email=self.email)
+        self.transformer = Mock()
+        self.transformer.get_lms_root_url.side_effect = lambda: settings.LMS_ROOT_URL
+
+    def tearDown(self):
+        """Clean cache and restarts mocks"""
+        self.transformer.reset_mock()
+        return super().tearDown()
 
     def test_user_does_not_exist(self):
         """ Test case when the user is not found by the email.
@@ -58,7 +65,7 @@ class XApiActorFilterTestCase(TestCase):
             mbox=email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(f"mailto:{email}", actor.mbox)
 
@@ -89,7 +96,7 @@ class XApiActorFilterTestCase(TestCase):
             mbox=self.email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(self.username, actor.name)
         self.assertEqual(settings.LMS_ROOT_URL, actor.account.home_page)
@@ -117,7 +124,7 @@ class XApiActorFilterTestCase(TestCase):
             mbox=self.email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(self.username, actor.name)
         self.assertEqual(national_id, actor.account.name)
