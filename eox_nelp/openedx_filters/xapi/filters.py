@@ -59,7 +59,7 @@ class XApiActorFilter(PipelineStep):
             result = Agent(
                 name=user.username,
                 account={
-                    "homePage": settings.LMS_ROOT_URL,  # System's home page
+                    "homePage": transformer.get_lms_root_url(),
                     "name": identifier
                 },
                 objectType="Agent"
