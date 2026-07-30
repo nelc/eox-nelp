@@ -23,7 +23,7 @@ class RunInitPipelineTestCase(TestCase):
     @patch("eox_nelp.init_pipeline.register_xapi_transformers")
     @patch("eox_nelp.init_pipeline.patch_user_gender_choices")
     @patch("eox_nelp.init_pipeline.set_mako_templates")
-    def test_pipeline_execute_expected_methods(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def test_pipeline_execute_expected_methods(
         self,
         set_mako_templates_mock,
         patch_user_gender_choices_mock,
