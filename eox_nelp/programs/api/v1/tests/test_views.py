@@ -612,7 +612,7 @@ class ProgramsListViewTestCase(APITestCase):
         mock_get_program_metadata,
         mock_course_serializer,
         mock_courses,
-    ):  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    ):
         """
         Test GET returns error if ProgramLookupSerializer is invalid.
         Expected behavior:
