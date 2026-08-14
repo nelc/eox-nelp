@@ -116,27 +116,28 @@ class TenantRestrictionPathMiddleware:
     """
     def __init__(self, get_response):
         """
-        Initialize the middleware with the response handler and fetch restricted paths from settings."""
+        Initialize the middleware with the response handler.
+        """
         self.get_response = get_response
-
-        # Fetch the restricted paths from settings.
-        # If TENANT_RESTRICTION_PATH is not defined, it defaults to an empty list [].
-        self.tenant_restriction_paths = getattr(settings, 'TENANT_RESTRICTION_PATHS', [])
 
     def __call__(self, request):
         """
         Process each request and restrict access based on user authentication.
         """
+        tenant_restriction_paths = getattr(settings, "TENANT_RESTRICTION_PATHS", [])
         current_path = request.path_info
-        # 1. Check if the current path matches any of the restricted prefixes
-        is_restricted = any(current_path.startswith(path) for path in self.tenant_restriction_paths)
 
-        # 2. If the route is restricted and the user is NOT authenticated, redirect
+        # 1. Check if the current path matches any of the restricted prefixes.
+        is_restricted = any(
+            current_path.startswith(path) for path in tenant_restriction_paths
+        )
+
+        # 2. If the route is restricted and the user is NOT authenticated, redirect.
         if is_restricted and not request.user.is_authenticated:
-            # Append the '?next=' parameter to return the user after login
-            login_url = getattr(settings, 'LOGIN_URL', '/login/')
+            # Append the '?next=' parameter to return the user after login.
+            login_url = getattr(settings, "LOGIN_URL", "/login/")
             return redirect(f"{login_url}?next={current_path}")
 
-        # 3. If everything is fine, proceed with the request
+        # 3. If everything is fine, proceed with the request.
         response = self.get_response(request)
         return response
