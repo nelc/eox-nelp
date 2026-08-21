@@ -5,8 +5,8 @@ bs4
 bridgekeeper
 Django
 django-filter
-djangorestframework
-djangorestframework-jsonapi
+djangorestframework<3.18.0
+djangorestframework-jsonapi<8.1.0
 django-password-validators==1.7.3
 django-phonenumber-field[phonenumbers]
 edx-django-utils
