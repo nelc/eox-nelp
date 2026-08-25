@@ -7,7 +7,9 @@ from django.conf import settings
 from eox_core.edxapp_wrapper.certificates import get_generated_certificate
 from rest_framework import serializers
 
+from eox_nelp.edxapp_wrapper.certificates import api as certificates_api
 from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
+from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 from eox_nelp.utils import get_course_from_id
 
@@ -22,21 +24,25 @@ class CertificateSerializer(serializers.ModelSerializer):
     such as the tenant name, course organization, and the absolute URL
     to view or download the certificate.
     """
+    certificate_id = serializers.CharField(source="verify_uuid", read_only=True)
     tenant = serializers.SerializerMethodField()
     org = serializers.SerializerMethodField()
     certificate_url = serializers.SerializerMethodField()
     course_name = serializers.SerializerMethodField()
+    issue_date = serializers.SerializerMethodField()
 
     class Meta:
         """Class to configure serializer with  model GeneratedCertificate"""
         model = GeneratedCertificate
         fields = [
+            "certificate_id",
             "tenant",
             "org",
             "course_id",
             "course_name",
             "status",
             "mode",
+            "issue_date",
             "certificate_url",
         ]
 
@@ -108,3 +114,29 @@ class CertificateSerializer(serializers.ModelSerializer):
         course = get_course_from_id(str(instance.course_id))
 
         return course.get("display_name")
+
+    def get_issue_date(self, instance):
+        """
+        Retrieve the date the certificate was issued to the learner.
+
+        This is the same date the platform prints as "Issued On" when the certificate is
+        rendered, so an external verifier comparing this value against a certificate
+        document sees a matching date. `display_date_for_certificate` resolves it from the
+        certificate date override, the course certificate-available date or the course end
+        date, falling back to the certificate `modified_date`.
+
+        Args:
+            instance (GeneratedCertificate): The certificate instance.
+
+        Returns:
+            str: The ISO 8601 issue date, or None when the course overview is missing and
+                 the display rules therefore cannot be evaluated.
+        """
+        course_overview = CourseOverview.objects.filter(id=instance.course_id).first()
+
+        if not course_overview:
+            return None
+
+        issue_date = certificates_api.display_date_for_certificate(course_overview, instance)
+
+        return issue_date.isoformat() if issue_date else None

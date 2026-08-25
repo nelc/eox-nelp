@@ -5,6 +5,7 @@ https://github.com/eduNEXT/edunext-platform/tree/master/lms/djangoapps/certifica
 from django.apps import apps
 from django.contrib import admin
 from lms.djangoapps import certificates  # pylint: disable=import-error
+from lms.djangoapps.certificates import api as certificates_api  # pylint: disable=import-error
 
 
 def get_generated_certificates_admin():
@@ -48,3 +49,13 @@ def get_certificates_models():
         certificates.models module.
     """
     return certificates.models
+
+
+def get_certificates_api():
+    """Allow to get the certificates api module.
+    https://github.com/nelc/edx-platform/tree/open-release/teak.nelp/lms/djangoapps/certificates/api.py
+
+    Returns:
+        certificates.api module.
+    """
+    return certificates_api
