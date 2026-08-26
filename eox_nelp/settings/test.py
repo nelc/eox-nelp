@@ -20,6 +20,7 @@ def test_plugin_settings(settings):  # pylint: disable=too-many-statements
     See: https://github.com/edx/edx-platform/blob/master/openedx/core/djangoapps/plugins/README.rst
     """
     settings.EOX_NELP_COURSE_CREATORS_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.course_creators_k_v1'
+    settings.EOX_NELP_COURSE_MODES_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.course_modes_t_v1'
     settings.EOX_NELP_COURSE_OVERVIEWS_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.course_overviews_m_v1'
     settings.EOX_NELP_SITE_CONFIGURATION = 'eox_nelp.edxapp_wrapper.test_backends.site_configuration_m_v1'
     settings.EOX_NELP_USER_API = 'eox_nelp.edxapp_wrapper.test_backends.user_api_m_v1'
@@ -185,3 +186,78 @@ TEMPLATES = [
 
 # ------------user profile api settings------------------------------
 USER_PROFILE_API_VALIDATE_PHONE_NUMBER = True
+
+COURSE_ENROLLMENT_MODES = {
+    "audit": {
+        "id": 1,
+        "slug": "audit",
+        "display_name": "Audit",
+        "min_price": 0,
+    },
+    "verified": {
+        "id": 2,
+        "slug": "verified",
+        "display_name": "Verified",
+        "min_price": 1,
+    },
+    "professional": {
+        "id": 3,
+        "slug": "professional",
+        "display_name": "Professional",
+        "min_price": 1,
+    },
+    "no-id-professional": {
+        "id": 4,
+        "slug": "no-id-professional",
+        "display_name": "No-Id-Professional",
+        "min_price": 0,
+    },
+    "credit": {
+        "id": 5,
+        "slug": "credit",
+        "display_name": "Credit",
+        "min_price": 0,
+    },
+    "honor": {
+        "id": 6,
+        "slug": "honor",
+        "display_name": "Honor",
+        "min_price": 0,
+    },
+    "masters": {
+        "id": 7,
+        "slug": "masters",
+        "display_name": "Master's",
+        "min_price": 0,
+    },
+    "executive-education": {
+        "id": 8,
+        "slug": "executive-educations",
+        "display_name": "Executive Education",
+        "min_price": 1
+    },
+    "unpaid-executive-education": {
+        "id": 9,
+        "slug": "unpaid-executive-education",
+        "display_name": "Unpaid Executive Education",
+        "min_price": 0
+    },
+    "paid-executive-education": {
+        "id": 10,
+        "slug": "paid-executive-education",
+        "display_name": "Paid Executive Education",
+        "min_price": 1
+    },
+    "unpaid-bootcamp": {
+        "id": 11,
+        "slug": "unpaid-bootcamp",
+        "display_name": "Unpaid Bootcamp",
+        "min_price": 0
+    },
+    "paid-bootcamp": {
+        "id": 12,
+        "slug": "paid-bootcamp",
+        "display_name": "Paid Bootcamp",
+        "min_price": 1
+    },
+}

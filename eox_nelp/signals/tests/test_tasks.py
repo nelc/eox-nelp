@@ -19,6 +19,8 @@ from opaque_keys.edx.keys import CourseKey, UsageKey
 from social_django.models import UserSocialAuth
 
 from eox_nelp.edxapp_wrapper.course_blocks import get_student_module_as_dict
+from eox_nelp.edxapp_wrapper.course_modes import CourseMode
+from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.signals import tasks
@@ -26,6 +28,7 @@ from eox_nelp.signals.tasks import (
     _generate_progress_enrollment_data,
     _post_futurex_progress,
     course_completion_mt_updater,
+    create_course_mode,
     dispatch_futurex_progress,
     emit_subsection_attempt_event_task,
     set_default_advanced_modules,
@@ -688,3 +691,109 @@ class SetDefaultAdvancedModulesTestCase(TestCase):
             ["sga", "ora", "gradebook", "completion", "checkboxes", "html"],
         )
         store.update_item.assert_called_once_with(course, self.user.id)
+
+
+class CreateCourseModeTaskTestCase(unittest.TestCase):
+    """Test class for create_course_mode Celery task."""
+
+    def setUp(self):
+        """Setup common conditions for every test case."""
+        self.course_key_str = "course-v1:test+Cx105+2022_T4"
+        self.course_key = CourseKey.from_string(self.course_key_str)
+        self.mode_slug = "honor"
+
+        # Create the CourseOverview in the test database
+        self.course_overview = CourseOverview.objects.create(
+            id=self.course_key,
+            org="test"
+        )
+
+    def tearDown(self):
+        """Clean up the test database after each test."""
+        CourseMode.objects.all().delete()
+        CourseOverview.objects.all().delete()
+
+    def test_invalid_course_key(self):
+        """Test that the task handles an invalid course key string.
+
+        Expected behavior:
+            - expected logs of InvalidKeyError
+            - CourseMode count remains 0
+        """
+        invalid_key_str = "invalid-key-string"
+        expected_log = [
+            f"ERROR:{tasks.__name__}:"
+            f"Cannot create course mode. Invalid course key string provided: {invalid_key_str}"
+        ]
+
+        with self.assertLogs(tasks.__name__, level="ERROR") as logs:
+            create_course_mode(invalid_key_str, self.mode_slug)
+
+        self.assertListEqual(logs.output, expected_log)
+        self.assertEqual(CourseMode.objects.count(), 0)
+
+    def test_course_overview_does_not_exist(self):
+        """Test that the task handles a missing CourseOverview.
+
+        Expected behavior:
+            - expected logs of CourseOverview.DoesNotExist
+            - CourseMode count remains 0
+        """
+        missing_key_str = "course-v1:test+MISSING+2022_T4"
+        expected_log = [
+            f"ERROR:{tasks.__name__}:"
+            f"Cannot create course mode. CourseOverview for key {missing_key_str} does not exist."
+        ]
+
+        with self.assertLogs(tasks.__name__, level="ERROR") as logs:
+            create_course_mode(missing_key_str, self.mode_slug)
+
+        self.assertListEqual(logs.output, expected_log)
+        self.assertEqual(CourseMode.objects.count(), 0)
+
+    def test_course_mode_created_successfully(self):
+        """Test that the CourseMode is successfully created.
+
+        Expected behavior:
+            - expected logs of successful creation
+            - the desired CourseMode object exists in the database
+        """
+        expected_log = [
+            f"INFO:{tasks.__name__}:"
+            f"Successfully created '{self.mode_slug}' course mode for course {self.course_key_str}"
+        ]
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            create_course_mode(self.course_key_str, self.mode_slug)
+
+        self.assertListEqual(logs.output, expected_log)
+        self.assertTrue(
+            CourseMode.objects.filter(
+                course=self.course_overview,
+                mode_slug=self.mode_slug
+            ).exists()
+        )
+
+    def test_course_mode_already_exists(self):
+        """Test that the task handles an already existing CourseMode.
+
+        Expected behavior:
+            - expected logs of already existing CourseMode
+            - CourseMode count remains 1
+        """
+        # Create the course mode before running the task
+        CourseMode.objects.create(
+            course=self.course_overview,
+            mode_slug=self.mode_slug,
+            mode_display_name=self.mode_slug.capitalize(),
+        )
+        expected_log = [
+            f"INFO:{tasks.__name__}:"
+            f"Course mode '{self.mode_slug}' already exists for course {self.course_key_str}"
+        ]
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            create_course_mode(self.course_key_str, self.mode_slug)
+
+        self.assertListEqual(logs.output, expected_log)
+        self.assertEqual(CourseMode.objects.count(), 1)

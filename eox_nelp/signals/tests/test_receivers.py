@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """This file contains all the test for receivers.py file.
 Classes:
     CourseGradeChangedProgressPublisherTestCase: Test course_grade_changed_progress_publisher receiver.
@@ -11,15 +12,17 @@ Classes:
     ListenForCourseDeleteTestCase: Test listen_for_course_delete receiver.
 """
 import unittest
+from unittest.mock import MagicMock, patch
 
 from custom_reg_form.models import ExtraInfo
 from ddt import ddt
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from eox_core.edxapp_wrapper.users import get_user_signup_source
 from eventtracking.tracker import get_tracker
-from mock import Mock, patch
+from mock import Mock
 from opaque_keys.edx.keys import CourseKey
 from openedx_events.data import EventsMetadata
 from openedx_events.learning.data import CertificateData, CourseData, UserData, UserPersonalData
@@ -43,6 +46,7 @@ from eox_nelp.signals.receivers import (
     pearson_vue_course_completion_handler,
     pearson_vue_course_passed_handler,
     receive_course_created,
+    receive_course_created_for_modes,
     update_async_tracker_context,
 )
 from eox_nelp.tests.utils import set_key_values
@@ -922,3 +926,98 @@ class ListenForCourseDeleteTestCase(unittest.TestCase):
         listen_for_course_delete(sender=None, course_key=course_key)
 
         CourseAboutSearchIndexer.remove_deleted_items.assert_called_once_with(course_key)
+
+
+class ReceiveCourseCreatedForModesTestCase(unittest.TestCase):
+    """Test class for receive_course_created_for_modes signal receiver."""
+
+    def setUp(self):
+        """Setup common conditions for every test case."""
+        self.course_id = "course-v1:test+Cx105+2022_T4"
+        self.course_key = CourseKey.from_string(self.course_id)
+
+        # Mock a CourseData-like object
+        self.course_data_mock = MagicMock()
+        self.course_data_mock.course_key = self.course_key
+
+    @patch("eox_nelp.signals.receivers.create_course_mode")
+    def test_invalid_course_data(self, create_course_mode_mock):
+        """Test that the receiver aborts when valid course data is not provided.
+
+        Expected behavior:
+            - expected warning log of aborted receiver
+            - create_course_mode async task is not called
+        """
+        expected_log = [
+            f"WARNING:{receivers.__name__}:"
+            f"receive_course_created_for_modes aborted: valid course data was not provided."
+        ]
+
+        with self.assertLogs(receivers.__name__, level="WARNING") as logs:
+            # Passing None instead of a valid CourseData object
+            receive_course_created_for_modes(course=None)
+
+        self.assertListEqual(logs.output, expected_log)
+        create_course_mode_mock.apply_async.assert_not_called()
+
+    @override_settings(DEFAULT_COURSE_MODE="no-id-professional")
+    @patch("eox_nelp.signals.receivers.configuration_helpers")
+    @patch("eox_nelp.signals.receivers.create_course_mode")
+    def test_valid_course_data_triggers_task(self, create_course_mode_mock, configuration_helpers_mock):
+        """Test that the receiver triggers the async task when valid course data is provided.
+
+        Expected behavior:
+            - expected info log of triggered task
+            - create_course_mode async task is called with expected args and countdown
+        """
+        configuration_helpers_mock.get_value_for_org.return_value = settings.DEFAULT_COURSE_MODE
+        expected_log = [
+            f"INFO:{receivers.__name__}:"
+            f"COURSE_CREATED signal received for course {self.course_id}. "
+            f"Triggering create_course_mode task."
+        ]
+
+        with self.assertLogs(receivers.__name__, level="INFO") as logs:
+            receive_course_created_for_modes(course=self.course_data_mock)
+
+        self.assertListEqual(logs.output, expected_log)
+        create_course_mode_mock.apply_async.assert_called_once_with(
+            args=[self.course_id, settings.DEFAULT_COURSE_MODE],
+            countdown=5,
+        )
+
+    @override_settings(DISABLE_DEFAULT_COURSE_MODE_TRIGGER=True)
+    @patch("eox_nelp.signals.receivers.configuration_helpers")
+    @patch("eox_nelp.signals.receivers.create_course_mode")
+    def test_feature_flag_disables_trigger(self, create_course_mode_mock, configuration_helpers_mock):
+        """Test that the receiver aborts when the disable feature flag is set to True.
+
+        Expected behavior:
+            - configuration_helpers.get_value_for_org is not called
+            - create_course_mode async task is not called
+        """
+        # Call the receiver with valid data, but the setting is set to True
+        receive_course_created_for_modes(course=self.course_data_mock)
+
+        # Assert the function returned early
+        configuration_helpers_mock.get_value_for_org.assert_not_called()
+        create_course_mode_mock.apply_async.assert_not_called()
+
+    @patch("eox_nelp.signals.receivers.configuration_helpers")
+    @patch("eox_nelp.signals.receivers.create_course_mode")
+    def test_invalid_default_course_mode_raises_exception(self, create_course_mode_mock, configuration_helpers_mock):
+        """Test that the receiver raises an Exception if the configured mode is invalid.
+
+        Expected behavior:
+            - Exception is raised with the specific error message
+            - create_course_mode async task is not called
+        """
+        invalid_mode_slug = "invalid-mode-slug"
+        configuration_helpers_mock.get_value_for_org.return_value = invalid_mode_slug
+
+        # Expect an exception to be raised due to the mode not being in COURSE_ENROLLMENT_MODES
+        with self.assertRaisesRegex(Exception, f"Invalid DEFAULT_COURSE_MODE {invalid_mode_slug}"):
+            receive_course_created_for_modes(course=self.course_data_mock)
+
+        # Assert the Celery task was not triggered
+        create_course_mode_mock.apply_async.assert_not_called()

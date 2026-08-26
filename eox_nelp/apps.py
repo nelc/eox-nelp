@@ -164,7 +164,12 @@ class EoxNelpCMSConfig(AppConfig):
                         'receiver_func_name': 'receive_course_created',
                         'signal_path': 'openedx_events.content_authoring.signals.COURSE_CREATED',
                         'dispatch_uid': 'course_published_receiver',
-                    }
+                    },
+                    {
+                        'receiver_func_name': 'receive_course_created_for_modes',
+                        'signal_path': 'openedx_events.content_authoring.signals.COURSE_CREATED',
+                        'dispatch_uid': 'course_created_course_mode_receiver',
+                    },
                 ],
             },
         },

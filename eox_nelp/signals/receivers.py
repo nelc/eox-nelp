@@ -29,12 +29,14 @@ from openedx_events.learning.data import CertificateData, CourseData, UserData, 
 
 from eox_nelp.edxapp_wrapper.contentstore import CourseAboutSearchIndexer
 from eox_nelp.edxapp_wrapper.modulestore import SignalHandler
+from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 from eox_nelp.external_certificates.tasks import create_external_certificate
 from eox_nelp.notifications.tasks import create_course_notifications as create_course_notifications_task
 from eox_nelp.payment_notifications.models import PaymentNotification
 from eox_nelp.pearson_vue_engine.tasks import real_time_import_task_v2
 from eox_nelp.signals.tasks import (
     course_completion_mt_updater,
+    create_course_mode,
     dispatch_futurex_progress,
     emit_subsection_attempt_event_task,
     set_default_advanced_modules,
@@ -505,3 +507,58 @@ def listen_for_course_delete(sender, course_key, **kwargs):  # pylint: disable=u
     cross-app dependencies that would break the LMS environment.
     """
     CourseAboutSearchIndexer.remove_deleted_items(course_key)
+
+
+def receive_course_created_for_modes(course, **kwargs):  # pylint: disable=unused-argument
+    """
+    Django signal receiver that triggers the `create_course_mode` async task
+    when the `COURSE_CREATED` signal is sent.
+
+    This function listens for the `COURSE_CREATED` signal and retrieves the
+    organization-specific default course mode using `TenantSiteConfigProxy`.
+    It validates the retrieved mode against available `COURSE_ENROLLMENT_MODES`
+    and, if valid, calls the asynchronous task `create_course_mode` to set the
+    default course mode for the newly created course.
+
+    Args:
+        course <CourseData>: CourseData instance containing the course_key.
+            https://github.com/openedx/openedx-events/blob/main/openedx_events/content_authoring/data.py
+        **kwargs: Additional keyword arguments passed with the signal, if any.
+
+    Raises:
+        Exception: If the configured `DEFAULT_COURSE_MODE` for the organization
+            is not found in `settings.COURSE_ENROLLMENT_MODES`.
+
+    Returns:
+        None: This function does not return any value. It triggers an asynchronous task.
+    """
+    if getattr(settings, "DISABLE_DEFAULT_COURSE_MODE_TRIGGER", None):
+        return
+
+    if not course or not getattr(course, 'course_key', None):
+        LOGGER.warning(
+            "receive_course_created_for_modes aborted: valid course data was not provided."
+        )
+        return
+
+    default_mode_slug = configuration_helpers.get_value_for_org(
+        course.course_key.org,
+        "DEFAULT_COURSE_MODE",
+        getattr(settings, "DEFAULT_COURSE_MODE", "honor"),
+    )
+
+    if default_mode_slug not in settings.COURSE_ENROLLMENT_MODES.keys():
+        raise Exception(f"Invalid DEFAULT_COURSE_MODE {default_mode_slug}")  # pylint: disable=broad-exception-raised
+
+    LOGGER.info(
+        "COURSE_CREATED signal received for course %s. Triggering create_course_mode task.",
+        str(course.course_key)
+    )
+
+    # Trigger the Celery task with a 5-second delay.
+    # The delay ensures that the CourseOverview record is fully committed
+    # to the database before the task attempts to query it.
+    create_course_mode.apply_async(
+        args=[str(course.course_key), default_mode_slug],
+        countdown=5,
+    )
