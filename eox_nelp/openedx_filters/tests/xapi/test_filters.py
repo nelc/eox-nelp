@@ -46,8 +46,7 @@ class XApiActorFilterTestCase(TestCase):
         self.username = "xapi"
         self.email = "xapi@example.com"
         self.user, _ = User.objects.update_or_create(username=self.username, email=self.email)
-        self.transformer = Mock()
-        self.transformer.get_lms_root_url.side_effect = lambda: settings.LMS_ROOT_URL
+        self.transformer = Mock(get_lms_root_url=Mock(return_value=settings.LMS_ROOT_URL))
 
     def tearDown(self):
         """Clean cache and restarts mocks"""
@@ -82,7 +81,6 @@ class XApiActorFilterTestCase(TestCase):
 
         self.assertRaises(TypeError, self.filter.run_filter, actor)
 
-    @override_settings(LMS_ROOT_URL="https://lms.example.com")
     def test_update_given_actor_with_username_fallback(self):
         """ Test case when the user exists but has no national_id.
 
@@ -103,7 +101,6 @@ class XApiActorFilterTestCase(TestCase):
         self.assertEqual(self.username, actor.account.name)
         self.assertIsNone(getattr(actor, 'mbox', None))
 
-    @override_settings(LMS_ROOT_URL="https://lms.example.com")
     def test_update_given_actor_with_national_id(self):
         """ Test case when the user exists and has a national_id in extrainfo.
 

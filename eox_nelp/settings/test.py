@@ -102,6 +102,8 @@ FEATURES = {
     'ENABLE_OTHER_COURSE_SETTINGS': True,
 }
 
+LMS_ROOT_URL = "https://lms.example.com"
+
 COURSE_KEY_PATTERN = r'(?P<course_key_string>[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 COURSE_ID_PATTERN = COURSE_KEY_PATTERN.replace('course_key_string', 'course_id')
 
