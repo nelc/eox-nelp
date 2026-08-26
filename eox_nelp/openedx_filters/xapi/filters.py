@@ -35,7 +35,7 @@ class XApiActorFilter(PipelineStep):
         - name: The unique identifier (National ID or Username).
     """
 
-    def run_filter(self, transformer, result):  # pylint: disable=arguments-differ, unused-argument
+    def run_filter(self, transformer, result):  # pylint: disable=arguments-differ
         """
         Updates the actor agent to use an account identifier based on National ID or Username.
 
@@ -59,7 +59,7 @@ class XApiActorFilter(PipelineStep):
             result = Agent(
                 name=user.username,
                 account={
-                    "homePage": settings.LMS_ROOT_URL,  # System's home page
+                    "homePage": transformer.get_lms_root_url(),
                     "name": identifier
                 },
                 objectType="Agent"

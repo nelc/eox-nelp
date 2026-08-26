@@ -46,6 +46,12 @@ class XApiActorFilterTestCase(TestCase):
         self.username = "xapi"
         self.email = "xapi@example.com"
         self.user, _ = User.objects.update_or_create(username=self.username, email=self.email)
+        self.transformer = Mock(get_lms_root_url=Mock(return_value=settings.LMS_ROOT_URL))
+
+    def tearDown(self):
+        """Clean cache and restarts mocks"""
+        self.transformer.reset_mock()
+        return super().tearDown()
 
     def test_user_does_not_exist(self):
         """ Test case when the user is not found by the email.
@@ -58,7 +64,7 @@ class XApiActorFilterTestCase(TestCase):
             mbox=email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(f"mailto:{email}", actor.mbox)
 
@@ -75,7 +81,6 @@ class XApiActorFilterTestCase(TestCase):
 
         self.assertRaises(TypeError, self.filter.run_filter, actor)
 
-    @override_settings(LMS_ROOT_URL="https://lms.example.com")
     def test_update_given_actor_with_username_fallback(self):
         """ Test case when the user exists but has no national_id.
 
@@ -89,14 +94,13 @@ class XApiActorFilterTestCase(TestCase):
             mbox=self.email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(self.username, actor.name)
         self.assertEqual(settings.LMS_ROOT_URL, actor.account.home_page)
         self.assertEqual(self.username, actor.account.name)
         self.assertIsNone(getattr(actor, 'mbox', None))
 
-    @override_settings(LMS_ROOT_URL="https://lms.example.com")
     def test_update_given_actor_with_national_id(self):
         """ Test case when the user exists and has a national_id in extrainfo.
 
@@ -117,7 +121,7 @@ class XApiActorFilterTestCase(TestCase):
             mbox=self.email,
         )
 
-        actor = self.filter.run_filter(transformer=Mock(), result=actor)["result"]
+        actor = self.filter.run_filter(transformer=self.transformer, result=actor)["result"]
 
         self.assertEqual(self.username, actor.name)
         self.assertEqual(national_id, actor.account.name)
