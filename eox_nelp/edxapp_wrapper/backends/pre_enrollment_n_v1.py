@@ -14,7 +14,7 @@ import logging
 
 from common.djangoapps.student.models import CourseEnrollmentAllowed
 from django.db import IntegrityError, transaction
-from eox_core.edxapp_wrapper.backends.pre_enrollment_l_v1 import (  # pylint: disable=unused-import
+from eox_core.edxapp_wrapper.backends.pre_enrollment_l_v1 import (  # noqa: F401  pylint: disable=unused-import
     delete_pre_enrollment,
     get_pre_enrollment,
     update_pre_enrollment,
@@ -52,7 +52,12 @@ def create_pre_enrollment(*args, **kwargs):
 
         # Check if the course exists otherwise add a warning
         course = get_courseware_courses().get_course(course_key)
-        LOG.info('Creating regular pre-enrollment for email: %s course_id: %s auto_enroll: %s', email, course.id, auto_enroll)
+        LOG.info(
+            'Creating regular pre-enrollment for email: %s course_id: %s auto_enroll: %s',
+            email,
+            course.id,
+            auto_enroll,
+        )
     except IntegrityError:
         pre_enrollment = None
         raise NotFound(f'Pre-enrollment already exists for email: {email} course_id: {course_id}') from IntegrityError
