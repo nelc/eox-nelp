@@ -3,6 +3,7 @@
 Classes:
     ExtractCourseIdFromStringTestCase: Tests cases for the extract_course_id_from_string method.
     GetCourseFromIdTestCase: Tests cases for the get_course_from_id method.
+    NormalizeNationalIdTestCase: Tests cases for the normalize_national_id method.
 """
 from ddt import data, ddt
 from django.contrib.auth import get_user_model
@@ -17,6 +18,7 @@ from eox_nelp.utils import (
     extract_course_id_from_string,
     get_course_from_id,
     get_item_label,
+    normalize_national_id,
     save_extrainfo,
 )
 
@@ -290,3 +292,35 @@ class SaveExtraInfoTestCase(TestCase):
 
         with self.assertRaises(errors.AccountValidationError):
             save_extrainfo(user, extrainfo_data)
+
+
+@ddt
+class NormalizeNationalIdTestCase(TestCase):
+    """Test class for normalize_national_id method."""
+
+    @data(
+        ("١٠٠٥٢٧٦٩٧٥", "1005276975"),
+        ("  1005276975  ", "1005276975"),
+        ("\t٢٠٠٥٢٧٦٩٧٥\n", "2005276975"),
+        ("1005276975", "1005276975"),
+        ("000000", "000000"),
+        ("", ""),
+    )
+    def test_normalized_values(self, test_data):
+        """Test that Arabic-Indic digits are translated and the surrounding whitespace removed.
+
+        Expected behavior:
+            - The returned value matches the expected ASCII representation.
+        """
+        national_id, expected = test_data
+
+        self.assertEqual(normalize_national_id(national_id), expected)
+
+    @data(None, 1005276975, [], {})
+    def test_not_a_string(self, national_id):
+        """Test that a value which is not a string is normalized to an empty string.
+
+        Expected behavior:
+            - An empty string is returned.
+        """
+        self.assertEqual(normalize_national_id(national_id), "")

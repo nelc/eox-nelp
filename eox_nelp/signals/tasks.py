@@ -8,9 +8,10 @@ tasks:
 """
 import logging
 
-from celery import shared_task
+from celery import current_task, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db.models import Q
 from django.utils import timezone
 from eox_core.edxapp_wrapper.enrollments import get_enrollment
@@ -26,10 +27,16 @@ from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
+from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.utils import _user_has_passing_grade, get_completed_and_graded, get_completion_summary
+from eox_nelp.utils import is_valid_national_id, normalize_national_id
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+MT_SUCCESS_RESPONSE_CODE = 100
+MT_SENT_CACHE_KEY = "mt_training_stage:{national_id}:{course_id}:{stage_result}"
+MT_ACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 24 * 30
+MT_UNACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 6
 
 
 @shared_task
@@ -183,16 +190,52 @@ def emit_subsection_attempt_event_task(usage_id, user_id):
         )
 
 
-@shared_task
+@shared_task(autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def update_mt_training_stage(course_id, national_id, stage_result):
     """Sets MinisterOfTourismApiClient and updates the training stage base on the
     input arguments.
+
+    The same update is sent multiple times, since the completion receiver runs on every
+    BlockCompletion save, so an already sent result is skipped based on the cache. An
+    acknowledged result is never sent again, an unacknowledged one is allowed again after
+    a shorter timeout so it keeps being reattempted.
 
     Arguments:
         course_id (str): Unique course identifier.
         national_id (str): User identifier.
         stage_result (int): Representation of pass or fail result, 1 for pass  2 for fail.
+
+    Raises:
+        MTTrainingStageError: When the response code is not a success one, so the task is retried.
     """
+    national_id = normalize_national_id(national_id)
+
+    if not is_valid_national_id(national_id):
+        logger.error(
+            "Skipped update_training_stage with course_id=%s, stage_result=%s. Invalid national_id: %s",
+            course_id,
+            stage_result,
+            national_id,
+        )
+
+        return
+
+    cache_key = MT_SENT_CACHE_KEY.format(
+        national_id=national_id,
+        course_id=course_id,
+        stage_result=stage_result,
+    )
+
+    if not getattr(getattr(current_task, "request", None), "retries", 0) and cache.get(cache_key):
+        logger.debug(
+            "Skipped update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Already sent.",
+            course_id,
+            national_id,
+            stage_result,
+        )
+
+        return
+
     api_client = MinisterOfTourismApiClient(
         user=settings.MINISTER_OF_TOURISM_USER,
         password=settings.MINISTER_OF_TOURISM_PASSWORD,
@@ -205,12 +248,32 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         stage_result=stage_result,
     )
 
-    logger.info(
-        "Called update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
+    if response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE:
+        cache.set(cache_key, True, MT_ACKNOWLEDGED_CACHE_TIMEOUT)
+
+        logger.info(
+            "Called update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
+            course_id,
+            national_id,
+            stage_result,
+            response,
+        )
+
+        return
+
+    cache.set(cache_key, True, MT_UNACKNOWLEDGED_CACHE_TIMEOUT)
+
+    logger.error(
+        "Failed update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
         course_id,
         national_id,
         stage_result,
         response,
+    )
+
+    raise MTTrainingStageError(
+        f"The training stage was not acknowledged for course_id={course_id}, "
+        f"national_id={national_id}, stage_result={stage_result}."
     )
 
 
