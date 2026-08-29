@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 MT_SUCCESS_RESPONSE_CODE = 100
 MT_SENT_CACHE_KEY = "mt_training_stage:{national_id}:{course_id}:{stage_result}"
+MT_ACKNOWLEDGED = "acknowledged"
+MT_UNACKNOWLEDGED = "unacknowledged"
 MT_ACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 24 * 30
 MT_UNACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 6
 
@@ -197,8 +199,9 @@ def update_mt_training_stage(course_id, national_id, stage_result):
 
     The same update is sent multiple times, since the completion receiver runs on every
     BlockCompletion save, so an already sent result is skipped based on the cache. An
-    acknowledged result is never sent again, an unacknowledged one is allowed again after
-    a shorter timeout so it keeps being reattempted.
+    acknowledged result is never sent again, not even by a retry that was already in
+    flight when another attempt succeeded. An unacknowledged one is skipped until a
+    shorter timeout expires, but its own retries are allowed through so they can happen.
 
     Arguments:
         course_id (str): Unique course identifier.
@@ -226,12 +229,16 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         stage_result=stage_result,
     )
 
-    if not getattr(getattr(current_task, "request", None), "retries", 0) and cache.get(cache_key):
+    cached_result = cache.get(cache_key)
+    retrying = bool(getattr(getattr(current_task, "request", None), "retries", 0))
+
+    if cached_result == MT_ACKNOWLEDGED or (cached_result and not retrying):
         logger.debug(
-            "Skipped update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Already sent.",
+            "Skipped update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Already %s.",
             course_id,
             national_id,
             stage_result,
+            cached_result,
         )
 
         return
@@ -249,7 +256,7 @@ def update_mt_training_stage(course_id, national_id, stage_result):
     )
 
     if response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE:
-        cache.set(cache_key, True, MT_ACKNOWLEDGED_CACHE_TIMEOUT)
+        cache.set(cache_key, MT_ACKNOWLEDGED, MT_ACKNOWLEDGED_CACHE_TIMEOUT)
 
         logger.info(
             "Called update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
@@ -261,7 +268,7 @@ def update_mt_training_stage(course_id, national_id, stage_result):
 
         return
 
-    cache.set(cache_key, True, MT_UNACKNOWLEDGED_CACHE_TIMEOUT)
+    cache.set(cache_key, MT_UNACKNOWLEDGED, MT_UNACKNOWLEDGED_CACHE_TIMEOUT)
 
     logger.error(
         "Failed update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
