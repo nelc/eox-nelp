@@ -609,7 +609,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
                 course_id=self.course_id,
                 stage_result=self.stage_result,
             ),
-            True,
+            tasks.MT_UNACKNOWLEDGED,
         )
 
         with self.assertRaises(MTTrainingStageError):
@@ -620,6 +620,32 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             )
 
         api_mock.return_value.update_training_stage.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.current_task")
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_retry_is_skipped_once_acknowledged(self, api_mock, current_task_mock):
+        """Test that a retry does not send a result another attempt already got acknowledged.
+
+        Expected behavior:
+            - MinisterOfTourismApiClient mock has not been called.
+        """
+        current_task_mock.request.retries = 1
+        cache.set(
+            tasks.MT_SENT_CACHE_KEY.format(
+                national_id=self.national_id,
+                course_id=self.course_id,
+                stage_result=self.stage_result,
+            ),
+            tasks.MT_ACKNOWLEDGED,
+        )
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
+        )
+
+        api_mock.assert_not_called()
 
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_national_id_is_normalized(self, api_mock):
