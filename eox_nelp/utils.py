@@ -11,6 +11,7 @@ from eox_nelp.edxapp_wrapper.course_overviews import get_course_overviews
 from eox_nelp.edxapp_wrapper.user_api import errors
 
 NATIONAL_ID_REGEX = r"^[1-2]\d{9}$"
+ARABIC_INDIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 COURSE_ID_REGEX = r'(course-v1:[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 
 
@@ -65,6 +66,24 @@ def check_regex(string, regex):
     pattern = re.compile(regex)
 
     return pattern.match(string) is not None
+
+
+def normalize_national_id(national_id):
+    """Normalize a national_id so it can be matched by the external services that consume it.
+
+    Arabic-Indic digits are translated to their ASCII counterpart and the surrounding
+    whitespace is removed, since those values are stored verbatim and are unmatchable otherwise.
+
+    Args:
+        national_id: The value stored as national_id.
+
+    Returns:
+        national_id <str>: The normalized national_id, an empty string when it is not a string.
+    """
+    if not isinstance(national_id, str):
+        return ""
+
+    return national_id.strip().translate(ARABIC_INDIC_DIGITS)
 
 
 def is_valid_national_id(national_id, raise_exception=False):

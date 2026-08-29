@@ -12,6 +12,7 @@ from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from mock import Mock, patch
@@ -24,6 +25,7 @@ from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.signals import tasks
+from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.tasks import (
     _generate_progress_enrollment_data,
     _post_futurex_progress,
@@ -491,8 +493,29 @@ class EmitSubsectionAttemptEventTaskTestCase(unittest.TestCase):
         self.mock_validations()
 
 
+@ddt
 class UpdateMtTrainingStageTestCase(unittest.TestCase):
     """Test class for update_mt_training_stage function"""
+
+    def setUp(self):
+        """Set common conditions for test cases."""
+        self.course_id = "course-v1:test+Cx105+2022_T4"
+        self.national_id = "1245789652"
+        self.stage_result = 1
+
+    def tearDown(self):
+        """Clear cache after every test to keep standard conditions"""
+        cache.clear()
+
+    @staticmethod
+    def build_response(response_code):
+        """Build an API response with the given response code."""
+        return {
+            "correlationID": "abc-123",
+            "responseCode": response_code,
+            "responseMessage": "Success" if response_code == 100 else "Registration not found",
+            "data": {"result": "true" if response_code == 100 else "false"},
+        }
 
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_update_training_stage_call(self, api_mock):
@@ -503,36 +526,145 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             - update_training_stage was called with the right parameters.
             - logger.info outputs the expected log message.
         """
-        course_id = "course-v1:test+Cx105+2022_T4"
-        national_id = "1245789652"
-        stage_result = 1
-        response_mock = {
-            "correlationID": "abc-123",
-            "responseCode": 100,
-            "responseMessage": "Success",
-            "data": {"result": "true"},
-        }
+        response_mock = self.build_response(100)
         api_mock.return_value.update_training_stage.return_value = response_mock
         log_msg = (
-            f"Called update_training_stage with course_id={course_id}, "
-            f"national_id={national_id}, stage_result={stage_result}. "
+            f"Called update_training_stage with course_id={self.course_id}, "
+            f"national_id={self.national_id}, stage_result={self.stage_result}. "
             f"Response: {response_mock}"
         )
 
         with self.assertLogs("eox_nelp.signals.tasks", level="INFO") as logs:
             update_mt_training_stage(
-                course_id=course_id,
-                national_id=national_id,
-                stage_result=stage_result,
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
             )
 
         api_mock.assert_called_once()
         api_mock.return_value.update_training_stage.assert_called_once_with(
-            course_id=course_id,
-            national_id=national_id,
-            stage_result=stage_result,
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
         )
         self.assertEqual(logs.output, [f"INFO:eox_nelp.signals.tasks:{log_msg}"])
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_acknowledged_result_is_not_sent_again(self, api_mock):
+        """Test that a result already acknowledged by the API is not sent a second time.
+
+        Expected behavior:
+            - update_training_stage was called only once for the two executions.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(100)
+
+        for _ in range(2):
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        api_mock.return_value.update_training_stage.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_unacknowledged_result_raises(self, api_mock):
+        """Test when the API answers with a response code which is not the success one.
+
+        Expected behavior:
+            - MTTrainingStageError is raised.
+            - logger.error outputs the expected log message.
+        """
+        response_mock = self.build_response(110)
+        api_mock.return_value.update_training_stage.return_value = response_mock
+        log_msg = (
+            f"Failed update_training_stage with course_id={self.course_id}, "
+            f"national_id={self.national_id}, stage_result={self.stage_result}. "
+            f"Response: {response_mock}"
+        )
+
+        with self.assertLogs("eox_nelp.signals.tasks", level="ERROR") as logs:
+            with self.assertRaises(MTTrainingStageError):
+                update_mt_training_stage(
+                    course_id=self.course_id,
+                    national_id=self.national_id,
+                    stage_result=self.stage_result,
+                )
+
+        self.assertEqual(logs.output, [f"ERROR:eox_nelp.signals.tasks:{log_msg}"])
+
+    @patch("eox_nelp.signals.tasks.current_task")
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_retry_is_not_skipped_by_the_cache(self, api_mock, current_task_mock):
+        """Test that a retry of an unacknowledged result is sent even though the cache was set.
+
+        Expected behavior:
+            - update_training_stage was called, so the retries are not turned into no-ops.
+        """
+        current_task_mock.request.retries = 1
+        api_mock.return_value.update_training_stage.return_value = self.build_response(110)
+        cache.set(
+            tasks.MT_SENT_CACHE_KEY.format(
+                national_id=self.national_id,
+                course_id=self.course_id,
+                stage_result=self.stage_result,
+            ),
+            True,
+        )
+
+        with self.assertRaises(MTTrainingStageError):
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        api_mock.return_value.update_training_stage.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_national_id_is_normalized(self, api_mock):
+        """Test that an Arabic-Indic national_id is translated before it is sent.
+
+        Expected behavior:
+            - update_training_stage was called with the ASCII representation.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(100)
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id="١٠٠٥٢٧٦٩٧٥",
+            stage_result=self.stage_result,
+        )
+
+        api_mock.return_value.update_training_stage.assert_called_once_with(
+            course_id=self.course_id,
+            national_id="1005276975",
+            stage_result=self.stage_result,
+        )
+
+    @data("000000", "0000000000", "3005276975", "not-a-national-id", "")
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_invalid_national_id_is_not_sent(self, national_id, api_mock):
+        """Test that a national_id which does not match the national ID shape is not sent.
+
+        Expected behavior:
+            - MinisterOfTourismApiClient mock has not been called.
+            - logger.error outputs the expected log message.
+        """
+        log_msg = (
+            f"Skipped update_training_stage with course_id={self.course_id}, "
+            f"stage_result={self.stage_result}. Invalid national_id: {national_id}"
+        )
+
+        with self.assertLogs("eox_nelp.signals.tasks", level="ERROR") as logs:
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=national_id,
+                stage_result=self.stage_result,
+            )
+
+        api_mock.assert_not_called()
+        self.assertEqual(logs.output, [f"ERROR:eox_nelp.signals.tasks:{log_msg}"])
 
 
 @ddt
