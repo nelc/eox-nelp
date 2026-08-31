@@ -26,8 +26,8 @@ from eox_nelp.edxapp_wrapper.course_modes import CourseMode
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
-from eox_nelp.mt.models import MTTrainingStageDelivery
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
+from eox_nelp.mt.models import MTTrainingStageDelivery
 from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.utils import _user_has_passing_grade, get_completed_and_graded, get_completion_summary
 from eox_nelp.utils import is_valid_national_id, normalize_national_id
@@ -361,7 +361,6 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         f"The training stage was not acknowledged for course_id={course_id}, "
         f"national_id={national_id}, stage_result={stage_result}."
     )
-
 
 
 @shared_task
