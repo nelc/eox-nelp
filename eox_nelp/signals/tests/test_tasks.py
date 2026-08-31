@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """This file contains all the test for tasks.py file.
 
 Classes:
@@ -505,7 +506,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
 
     def tearDown(self):
         """Drop the delivery records after every test to keep standard conditions"""
-        MTTrainingStageDelivery.objects.all().delete()
+        MTTrainingStageDelivery.objects.all().delete()  # pylint: disable=no-member
 
     @staticmethod
     def build_response(response_code):
@@ -603,7 +604,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         """
         current_task_mock.request.retries = 1
         api_mock.return_value.update_training_stage.return_value = self.build_response(110)
-        MTTrainingStageDelivery.objects.create(
+        MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
             national_id=self.national_id,
             course_id=self.course_id,
             stage_result=self.stage_result,
@@ -626,7 +627,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         Expected behavior:
             - update_training_stage was not called.
         """
-        MTTrainingStageDelivery.objects.create(
+        MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
             national_id=self.national_id,
             course_id=self.course_id,
             stage_result=self.stage_result,
@@ -657,7 +658,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             stage_result=self.stage_result,
         )
 
-        delivery = MTTrainingStageDelivery.objects.get(
+        delivery = MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
             national_id=self.national_id,
             course_id=self.course_id,
             stage_result=self.stage_result,
@@ -683,7 +684,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
                 stage_result=self.stage_result,
             )
 
-        delivery = MTTrainingStageDelivery.objects.get(
+        delivery = MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
             national_id=self.national_id,
             course_id=self.course_id,
             stage_result=self.stage_result,
@@ -701,7 +702,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         Expected behavior:
             - update_training_stage was called for the corrected id.
         """
-        MTTrainingStageDelivery.objects.create(
+        MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
             national_id="1245789652",
             course_id=self.course_id,
             stage_result=self.stage_result,
