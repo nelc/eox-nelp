@@ -194,7 +194,7 @@ class ValidateOTPTestCase(POSTAuthenticatedTestMixin, APITestCase):
         ExtraInfo.objects.get_or_create(  # pylint: disable=no-member
             user=self.user,
             arabic_name="مسؤل",
-            national_id="123457896",
+            national_id="1234578960",
             occupation="student",
         )
 
