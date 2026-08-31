@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 from django.test import override_settings
 
-from eox_nelp.middleware import GCPCloudCDNSignedCookieMiddleware
+from eox_nelp.middleware import GCPCloudCDNSignedCookieMiddleware, TenantRestrictionPathMiddleware
 
 
 class GCPCloudCDNSignedCookieMiddlewareTestCase(TestCase):
@@ -120,3 +120,77 @@ class GCPCloudCDNSignedCookieMiddlewareTestCase(TestCase):
         self.middleware.get_response.assert_called_once_with(request)
         self.assertIn("Set-Cookie", result)
         self.assertIn("Domain=local.openedx.io", result["Set-Cookie"])
+
+
+class TenantRestrictionPathMiddlewareTestCase(TestCase):
+    """
+    Unit tests for TenantRestrictionPathMiddleware.
+    """
+
+    def setUp(self):
+        """Setup common conditions for every test case."""
+        self.middleware = TenantRestrictionPathMiddleware(get_response=Mock())
+
+    @override_settings(
+        LOGIN_URL="/login/",
+        TENANT_RESTRICTION_PATHS=["/tenant/", "/restricted/"],
+    )
+    def test_call_redirects_unauthenticated_user_for_restricted_path(self):
+        """
+        This method tests the desired behavior of __call__ when the current
+        path is restricted and the user is not authenticated.
+        Expected behavior:
+            - redirect to login with the next parameter.
+            - get_response is not called.
+        """
+        request = Mock()
+        request.path_info = "/tenant/abc/"
+        request.user = Mock(is_authenticated=False)
+
+        result = self.middleware(request)
+
+        self.assertEqual(result.status_code, 302)
+        self.assertEqual(result.url, "/login/?next=/tenant/abc/")
+        self.middleware.get_response.assert_not_called()
+
+    @override_settings(TENANT_RESTRICTION_PATHS=["/tenant/", "/restricted/"])
+    def test_call_allows_authenticated_user_for_restricted_path(self):
+        """
+        This method tests the desired behavior of __call__ when the current
+        path is restricted but the user is authenticated.
+        Expected behavior:
+            - get_response called once.
+            - response returned as-is.
+        """
+        request = Mock()
+        request.path_info = "/tenant/abc/"
+        request.user = Mock(is_authenticated=True)
+
+        response = {"status": "ok"}
+        self.middleware.get_response = Mock(return_value=response)
+
+        result = self.middleware(request)
+
+        self.middleware.get_response.assert_called_once_with(request)
+        self.assertEqual(result, response)
+
+    @override_settings(TENANT_RESTRICTION_PATHS=["/tenant/", "/restricted/"])
+    def test_call_allows_access_for_non_restricted_path(self):
+        """
+        This method tests the desired behavior of __call__ when the current
+        path is not restricted.
+        Expected behavior:
+            - get_response called once.
+            - no redirect is issued.
+        """
+        request = Mock()
+        request.path_info = "/public/landing/"
+        request.user = Mock(is_authenticated=False)
+
+        response = {"status": "ok"}
+        self.middleware.get_response = Mock(return_value=response)
+
+        result = self.middleware(request)
+
+        self.middleware.get_response.assert_called_once_with(request)
+        self.assertEqual(result, response)
