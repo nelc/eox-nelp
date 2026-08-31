@@ -7,11 +7,11 @@ tasks:
     course_completion_mt_updater: Updates mt training stage based on completion logic.
 """
 import logging
+from datetime import timedelta
 
 from celery import current_task, shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.db.models import Q
 from django.utils import timezone
 from eox_core.edxapp_wrapper.enrollments import get_enrollment
@@ -26,6 +26,7 @@ from eox_nelp.edxapp_wrapper.course_modes import CourseMode
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
+from eox_nelp.mt.models import MTTrainingStageDelivery
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.utils import _user_has_passing_grade, get_completed_and_graded, get_completion_summary
@@ -34,9 +35,9 @@ from eox_nelp.utils import is_valid_national_id, normalize_national_id
 logger = logging.getLogger(__name__)
 User = get_user_model()
 MT_SUCCESS_RESPONSE_CODE = 100
-MT_SENT_CACHE_KEY = "mt_training_stage:{national_id}:{course_id}:{stage_result}"
-MT_ACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 24 * 30
-MT_UNACKNOWLEDGED_CACHE_TIMEOUT = 60 * 60 * 6
+MT_UNACKNOWLEDGED_RETRY_WINDOW = timedelta(hours=6)
+MT_RECONCILE_MAX_ATTEMPTS = 10
+MT_RECONCILE_BATCH_SIZE = 200
 
 
 @shared_task
@@ -190,15 +191,105 @@ def emit_subsection_attempt_event_task(usage_id, user_id):
         )
 
 
+def _get_mt_delivery(national_id, course_id, stage_result):
+    """Return the delivery record for a result, creating it when it is new.
+
+    Bookkeeping must never stop a delivery, so a database failure here is logged and
+    None is returned, which makes the caller fall back to sending unconditionally.
+    """
+    try:
+        delivery, _ = MTTrainingStageDelivery.objects.get_or_create(  # pylint: disable=no-member
+            national_id=national_id,
+            course_id=course_id,
+            stage_result=stage_result,
+        )
+
+        if delivery.user_id is None:
+            user = User.objects.filter(extrainfo__national_id=national_id).first()
+
+            if user:
+                delivery.user = user
+                delivery.save(update_fields=["user"])
+
+        return delivery
+    except Exception:  # pylint: disable=broad-except
+        logger.exception(
+            "Could not read the MT delivery record for course_id=%s, national_id=%s, stage_result=%s.",
+            course_id,
+            national_id,
+            stage_result,
+        )
+
+        return None
+
+
+def _mt_delivery_is_due(delivery):
+    """Whether a result should be sent now.
+
+    An acknowledged result is never sent again. An unacknowledged one is held for the
+    retry window, which is what stops the completion receiver re-sending it on every
+    BlockCompletion save. A missing record means bookkeeping failed, and a delivery is
+    worth more than a duplicate, so it is sent.
+    """
+    if delivery is None:
+        return True
+
+    if delivery.acknowledged:
+        return False
+
+    if not delivery.attempts:
+        return True
+
+    return delivery.updated_at <= timezone.now() - MT_UNACKNOWLEDGED_RETRY_WINDOW
+
+
+def _record_mt_delivery(delivery, response):
+    """Store the outcome of a send against its delivery record.
+
+    Failures here are logged and swallowed for the same reason as `_get_mt_delivery`:
+    losing the bookkeeping is recoverable, losing the delivery is not.
+    """
+    if delivery is None:
+        return
+
+    try:
+        acknowledged = response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE
+        delivery.attempts += 1
+        delivery.last_response_code = str(response.get("responseCode"))[:16]
+        delivery.last_response_message = str(
+            response.get("responseMessage") or response.get("message") or ""
+        )
+
+        if acknowledged and not delivery.acknowledged:
+            delivery.acknowledged = True
+            delivery.acknowledged_at = timezone.now()
+
+        delivery.save(update_fields=[
+            "attempts",
+            "last_response_code",
+            "last_response_message",
+            "acknowledged",
+            "acknowledged_at",
+            "updated_at",
+        ])
+    except Exception:  # pylint: disable=broad-except
+        logger.exception(
+            "Could not record the MT delivery outcome for course_id=%s, national_id=%s, stage_result=%s.",
+            delivery.course_id,
+            delivery.national_id,
+            delivery.stage_result,
+        )
+
+
 @shared_task(autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def update_mt_training_stage(course_id, national_id, stage_result):
     """Sets MinisterOfTourismApiClient and updates the training stage base on the
     input arguments.
 
     The same update is sent multiple times, since the completion receiver runs on every
-    BlockCompletion save, so an already sent result is skipped based on the cache. An
-    acknowledged result is never sent again, an unacknowledged one is allowed again after
-    a shorter timeout so it keeps being reattempted.
+    BlockCompletion save, so an already sent result is skipped based on its delivery
+    record. An acknowledged result is never sent again, an unacknowledged one is allowed
+    again once the retry window has passed so it keeps being reattempted.
 
     Arguments:
         course_id (str): Unique course identifier.
@@ -220,13 +311,10 @@ def update_mt_training_stage(course_id, national_id, stage_result):
 
         return
 
-    cache_key = MT_SENT_CACHE_KEY.format(
-        national_id=national_id,
-        course_id=course_id,
-        stage_result=stage_result,
-    )
+    delivery = _get_mt_delivery(national_id, course_id, stage_result)
+    is_retry = bool(getattr(getattr(current_task, "request", None), "retries", 0))
 
-    if not getattr(getattr(current_task, "request", None), "retries", 0) and cache.get(cache_key):
+    if not is_retry and not _mt_delivery_is_due(delivery):
         logger.debug(
             "Skipped update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Already sent.",
             course_id,
@@ -248,9 +336,9 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         stage_result=stage_result,
     )
 
-    if response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE:
-        cache.set(cache_key, True, MT_ACKNOWLEDGED_CACHE_TIMEOUT)
+    _record_mt_delivery(delivery, response)
 
+    if response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE:
         logger.info(
             "Called update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
             course_id,
@@ -260,8 +348,6 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         )
 
         return
-
-    cache.set(cache_key, True, MT_UNACKNOWLEDGED_CACHE_TIMEOUT)
 
     logger.error(
         "Failed update_training_stage with course_id=%s, national_id=%s, stage_result=%s. Response: %s",
@@ -275,6 +361,57 @@ def update_mt_training_stage(course_id, national_id, stage_result):
         f"The training stage was not acknowledged for course_id={course_id}, "
         f"national_id={national_id}, stage_result={stage_result}."
     )
+
+
+
+@shared_task
+def reconcile_mt_training_stages(limit=None):
+    """Re-send every training stage result the partner has never acknowledged.
+
+    Delivery is edge-triggered: COURSE_GRADE_NOW_PASSED fires once per learner per
+    course and never fires again, so a result lost at that instant is lost for good
+    and only surfaces when the partner asks about it. This closes that gap by
+    walking the delivery records instead of waiting for another event.
+
+    Results are handed to `update_mt_training_stage`, which applies the retry window
+    itself, so a row picked up here before its window has passed is a no-op rather
+    than a duplicate send.
+
+    Arguments:
+        limit (int): Maximum number of results to re-send in this run. Defaults to
+            MT_RECONCILE_BATCH_SIZE, which bounds how much traffic one run can send
+            to the partner.
+    """
+    due_before = timezone.now() - MT_UNACKNOWLEDGED_RETRY_WINDOW
+    pending = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
+        acknowledged=False,
+        attempts__lt=MT_RECONCILE_MAX_ATTEMPTS,
+        updated_at__lte=due_before,
+    ).order_by("updated_at")[:limit or MT_RECONCILE_BATCH_SIZE]
+
+    unacknowledged_total = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
+        acknowledged=False,
+    ).count()
+
+    sent = 0
+
+    for delivery in pending:
+        update_mt_training_stage.delay(
+            course_id=delivery.course_id,
+            national_id=delivery.national_id,
+            stage_result=delivery.stage_result,
+        )
+        sent += 1
+
+    # Logged at ERROR so the backlog is alertable: a number that stops falling means
+    # deliveries are being lost silently again.
+    logger.error(
+        "MT reconciliation re-sent %s results. %s results remain unacknowledged.",
+        sent,
+        unacknowledged_total,
+    )
+
+    return {"resent": sent, "unacknowledged": unacknowledged_total}
 
 
 @shared_task

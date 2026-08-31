@@ -12,7 +12,6 @@ from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from mock import Mock, patch
@@ -24,6 +23,7 @@ from eox_nelp.edxapp_wrapper.course_modes import CourseMode
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview
 from eox_nelp.edxapp_wrapper.grades import SubsectionGradeFactory
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
+from eox_nelp.mt.models import MTTrainingStageDelivery
 from eox_nelp.signals import tasks
 from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.tasks import (
@@ -504,8 +504,8 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         self.stage_result = 1
 
     def tearDown(self):
-        """Clear cache after every test to keep standard conditions"""
-        cache.clear()
+        """Drop the delivery records after every test to keep standard conditions"""
+        MTTrainingStageDelivery.objects.all().delete()
 
     @staticmethod
     def build_response(response_code):
@@ -595,21 +595,19 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
 
     @patch("eox_nelp.signals.tasks.current_task")
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
-    def test_retry_is_not_skipped_by_the_cache(self, api_mock, current_task_mock):
-        """Test that a retry of an unacknowledged result is sent even though the cache was set.
+    def test_retry_is_not_skipped_by_the_delivery_record(self, api_mock, current_task_mock):
+        """Test that a retry of an unacknowledged result is sent even inside the retry window.
 
         Expected behavior:
             - update_training_stage was called, so the retries are not turned into no-ops.
         """
         current_task_mock.request.retries = 1
         api_mock.return_value.update_training_stage.return_value = self.build_response(110)
-        cache.set(
-            tasks.MT_SENT_CACHE_KEY.format(
-                national_id=self.national_id,
-                course_id=self.course_id,
-                stage_result=self.stage_result,
-            ),
-            True,
+        MTTrainingStageDelivery.objects.create(
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+            attempts=1,
         )
 
         with self.assertRaises(MTTrainingStageError):
@@ -618,6 +616,105 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
                 national_id=self.national_id,
                 stage_result=self.stage_result,
             )
+
+        api_mock.return_value.update_training_stage.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_acknowledged_result_is_never_sent_again(self, api_mock):
+        """Test that a result the partner already accepted is not delivered a second time.
+
+        Expected behavior:
+            - update_training_stage was not called.
+        """
+        MTTrainingStageDelivery.objects.create(
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+            attempts=1,
+            acknowledged=True,
+        )
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
+        )
+
+        api_mock.return_value.update_training_stage.assert_not_called()
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_acknowledgement_is_recorded(self, api_mock):
+        """Test that an accepted result is marked acknowledged on its delivery record.
+
+        Expected behavior:
+            - The record is acknowledged, carries the response code and counts the attempt.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(100)
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
+        )
+
+        delivery = MTTrainingStageDelivery.objects.get(
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+        self.assertTrue(delivery.acknowledged)
+        self.assertIsNotNone(delivery.acknowledged_at)
+        self.assertEqual(delivery.last_response_code, "100")
+        self.assertEqual(delivery.attempts, 1)
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_rejection_is_recorded_and_left_unacknowledged(self, api_mock):
+        """Test that a rejected result stays unacknowledged so it can be reconciled.
+
+        Expected behavior:
+            - The record is not acknowledged and carries the rejection code.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(110)
+
+        with self.assertRaises(MTTrainingStageError):
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        delivery = MTTrainingStageDelivery.objects.get(
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+        self.assertFalse(delivery.acknowledged)
+        self.assertEqual(delivery.last_response_code, "110")
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_a_corrected_national_id_is_delivered_again(self, api_mock):
+        """Test that correcting a learner's national ID produces a new delivery.
+
+        The partner identifies a learner by the value we send, so an acknowledgement
+        of the old value must not suppress the corrected one.
+
+        Expected behavior:
+            - update_training_stage was called for the corrected id.
+        """
+        MTTrainingStageDelivery.objects.create(
+            national_id="1245789652",
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+            attempts=1,
+            acknowledged=True,
+        )
+        api_mock.return_value.update_training_stage.return_value = self.build_response(100)
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id="1245789653",
+            stage_result=self.stage_result,
+        )
 
         api_mock.return_value.update_training_stage.assert_called_once()
 
