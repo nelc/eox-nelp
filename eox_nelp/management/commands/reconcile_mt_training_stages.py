@@ -38,5 +38,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"Re-sent {result['resent']} results. "
-            f"{result['unacknowledged']} remain unacknowledged."
+            f"{result['actionable']} awaiting acknowledgement, "
+            f"{result['abandoned']} abandoned."
         )
