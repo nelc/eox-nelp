@@ -8,6 +8,7 @@ Classes:
     CourseCompletionMtUpdaterTestCase: Test course_completion_mt_updater task.
 """
 import unittest
+from datetime import timedelta
 
 from custom_reg_form.models import ExtraInfo
 from ddt import data, ddt
@@ -34,6 +35,7 @@ from eox_nelp.signals.tasks import (
     create_course_mode,
     dispatch_futurex_progress,
     emit_subsection_attempt_event_task,
+    reconcile_mt_training_stages,
     set_default_advanced_modules,
     update_mt_training_stage,
 )
@@ -693,6 +695,32 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         self.assertEqual(delivery.last_response_code, "110")
 
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_a_missing_response_code_is_stored_as_null(self, api_mock):
+        """Test that a response carrying no code leaves last_response_code empty.
+
+        Storing `str(None)` would write the four-character string "None", which reads
+        like a real code and is missed by an isnull lookup.
+
+        Expected behavior:
+            - last_response_code is None, not the string "None".
+        """
+        api_mock.return_value.update_training_stage.return_value = {"responseMessage": "gateway timeout"}
+
+        with self.assertRaises(MTTrainingStageError):
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        delivery = MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+        self.assertIsNone(delivery.last_response_code)
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_a_corrected_national_id_is_delivered_again(self, api_mock):
         """Test that correcting a learner's national ID produces a new delivery.
 
@@ -1027,3 +1055,108 @@ class CreateCourseModeTaskTestCase(unittest.TestCase):
 
         self.assertListEqual(logs.output, expected_log)
         self.assertEqual(CourseMode.objects.count(), 1)
+
+
+class ReconcileMtTrainingStagesTestCase(TestCase):
+    """Test class for the reconcile_mt_training_stages task."""
+
+    def setUp(self):
+        """Set common conditions for test cases."""
+        self.course_id = "course-v1:test+Cx105+2022_T4"
+        self.national_id = "1245789652"
+
+    def tearDown(self):
+        """Drop the delivery records after every test to keep standard conditions"""
+        MTTrainingStageDelivery.objects.all().delete()  # pylint: disable=no-member
+
+    def build_delivery(self, national_id, attempts, acknowledged=False, hours_ago=12):
+        """Create a delivery record whose updated_at is far enough in the past to be due."""
+        delivery = MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
+            national_id=national_id,
+            course_id=self.course_id,
+            stage_result=1,
+            attempts=attempts,
+            acknowledged=acknowledged,
+        )
+        # updated_at is auto_now, so it has to be rewritten to age the row.
+        MTTrainingStageDelivery.objects.filter(pk=delivery.pk).update(  # pylint: disable=no-member
+            updated_at=timezone.now() - timedelta(hours=hours_ago),
+        )
+
+        return delivery
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_nothing_outstanding_is_logged_at_info(self, task_mock):
+        """Test that a run with nothing owed does not log at ERROR.
+
+        A healthy run must not raise an alert, otherwise the level stops meaning
+        anything and the alert becomes noise.
+
+        Expected behavior:
+            - The single log record is INFO.
+            - Nothing was re-sent.
+        """
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            result = reconcile_mt_training_stages()
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["INFO"])
+        self.assertEqual(result["resent"], 0)
+        self.assertEqual(result["actionable"], 0)
+        task_mock.delay.assert_not_called()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_outstanding_results_are_logged_at_error(self, task_mock):
+        """Test that a result still owed raises the log level to ERROR.
+
+        Expected behavior:
+            - The log record is ERROR.
+            - The result was re-sent and counted as actionable.
+        """
+        self.build_delivery(self.national_id, attempts=2)
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            result = reconcile_mt_training_stages()
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["ERROR"])
+        self.assertEqual(result["resent"], 1)
+        self.assertEqual(result["actionable"], 1)
+        self.assertEqual(result["abandoned"], 0)
+        task_mock.delay.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_exhausted_results_are_abandoned_not_actionable(self, task_mock):
+        """Test that a result which ran out of attempts stops counting as outstanding.
+
+        Nothing will be done about it again, so counting it alongside the retryable
+        ones produces a backlog that can only rise.
+
+        Expected behavior:
+            - It is reported as abandoned, not actionable.
+            - The run logs at INFO, since nothing is still owed.
+            - It is not re-sent.
+        """
+        self.build_delivery(self.national_id, attempts=tasks.MT_RECONCILE_MAX_ATTEMPTS)
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            result = reconcile_mt_training_stages()
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["INFO"])
+        self.assertEqual(result["actionable"], 0)
+        self.assertEqual(result["abandoned"], 1)
+        task_mock.delay.assert_not_called()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_acknowledged_results_are_never_resent(self, task_mock):
+        """Test that an accepted result is left alone.
+
+        Expected behavior:
+            - Nothing is re-sent and nothing is outstanding.
+        """
+        self.build_delivery(self.national_id, attempts=1, acknowledged=True)
+
+        result = reconcile_mt_training_stages()
+
+        self.assertEqual(result["resent"], 0)
+        self.assertEqual(result["actionable"], 0)
+        self.assertEqual(result["abandoned"], 0)
+        task_mock.delay.assert_not_called()

@@ -255,7 +255,8 @@ def _record_mt_delivery(delivery, response):
     try:
         acknowledged = response.get("responseCode") == MT_SUCCESS_RESPONSE_CODE
         delivery.attempts += 1
-        delivery.last_response_code = str(response.get("responseCode"))[:16]
+        response_code = response.get("responseCode")
+        delivery.last_response_code = None if response_code is None else str(response_code)[:16]
         delivery.last_response_message = str(
             response.get("responseMessage") or response.get("message") or ""
         )
@@ -380,6 +381,10 @@ def reconcile_mt_training_stages(limit=None):
         limit (int): Maximum number of results to re-send in this run. Defaults to
             MT_RECONCILE_BATCH_SIZE, which bounds how much traffic one run can send
             to the partner.
+
+    Returns:
+        dict: `resent` this run, `actionable` results still to be retried, and
+            `abandoned` results that have exhausted their attempts.
     """
     due_before = timezone.now() - MT_UNACKNOWLEDGED_RETRY_WINDOW
     pending = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
@@ -388,9 +393,15 @@ def reconcile_mt_training_stages(limit=None):
         updated_at__lte=due_before,
     ).order_by("updated_at")[:limit or MT_RECONCILE_BATCH_SIZE]
 
-    unacknowledged_total = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
+    unacknowledged = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
         acknowledged=False,
-    ).count()
+    )
+    # Split the backlog by whether anything will still be done about it. Rows that have
+    # exhausted their attempts are never retried again, so counting them alongside the
+    # retryable ones produces a number that can only rise, and an alert that can only
+    # become noise.
+    actionable = unacknowledged.filter(attempts__lt=MT_RECONCILE_MAX_ATTEMPTS).count()
+    abandoned = unacknowledged.filter(attempts__gte=MT_RECONCILE_MAX_ATTEMPTS).count()
 
     sent = 0
 
@@ -402,15 +413,19 @@ def reconcile_mt_training_stages(limit=None):
         )
         sent += 1
 
-    # Logged at ERROR so the backlog is alertable: a number that stops falling means
-    # deliveries are being lost silently again.
-    logger.error(
-        "MT reconciliation re-sent %s results. %s results remain unacknowledged.",
+    # ERROR only when something is still owed, so the level carries information: a run
+    # with nothing outstanding is not a problem and must not page anyone.
+    log = logger.error if actionable else logger.info
+    log(
+        "MT reconciliation re-sent %s results. %s awaiting acknowledgement, "
+        "%s abandoned after %s attempts.",
         sent,
-        unacknowledged_total,
+        actionable,
+        abandoned,
+        MT_RECONCILE_MAX_ATTEMPTS,
     )
 
-    return {"resent": sent, "unacknowledged": unacknowledged_total}
+    return {"resent": sent, "actionable": actionable, "abandoned": abandoned}
 
 
 @shared_task
