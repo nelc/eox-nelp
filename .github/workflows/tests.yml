@@ -32,7 +32,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Configure PAT to pull ssh private packages
         run: |
-          git config --global url."https://${{ secrets.ROBONEXT_PAT }}@github.com/".insteadOf ssh://git@github.com/
+          git config --global url."https://${{ secrets.CI_PAT }}@github.com/".insteadOf ssh://git@github.com/
 
       - name: Run Python Automation Tests
         run: |
