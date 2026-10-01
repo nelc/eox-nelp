@@ -23,7 +23,7 @@ jobs:
 
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.GITHUB_PAT }}
+          token: ${{ secrets.CI_PAT }}
           repository: nelc/edx-platform-strains
           event-type: strain-update-pr
           client-payload: |
