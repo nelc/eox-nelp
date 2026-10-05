@@ -15,6 +15,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
 from eox_core.edxapp_wrapper.enrollments import get_enrollment
+from eox_tenant.constants import LMS_CONFIG_COLUMN
+from eox_tenant.signals import _update_settings
 from eventtracking import tracker
 from nelc_api_clients.clients.futurex import FuturexApiClient
 from nelc_api_clients.clients.mt import MinisterOfTourismApiClient
@@ -38,6 +40,7 @@ MT_SUCCESS_RESPONSE_CODE = 100
 MT_UNACKNOWLEDGED_RETRY_WINDOW = timedelta(hours=6)
 MT_RECONCILE_MAX_ATTEMPTS = 10
 MT_RECONCILE_BATCH_SIZE = 200
+MT_TENANT_DOMAIN = "mt.futurex.sa"
 
 
 @shared_task
@@ -364,6 +367,24 @@ def update_mt_training_stage(course_id, national_id, stage_result):
     )
 
 
+def bind_mt_tenant():
+    """Bind this process's settings to the MT tenant so queued tasks carry it.
+
+    The MT credentials live only in the tenant's lms_configs. eox-tenant stamps every
+    published task with `settings.EDNX_TENANT_DOMAIN`, overwriting any
+    `eox_tenant_sender` kwarg, and the worker binds that tenant before the task runs.
+    Outside a request (a CronJob or a shell) that setting is unset, so the worker
+    falls back to global settings and the task dies on the missing credentials.
+
+    Returns:
+        bool: True when the settings now belong to the MT tenant.
+    """
+    domain = getattr(settings, "MT_TENANT_DOMAIN", MT_TENANT_DOMAIN)
+    _update_settings(domain, LMS_CONFIG_COLUMN)
+
+    return getattr(settings, "EDNX_TENANT_DOMAIN", None) == domain
+
+
 @shared_task
 def reconcile_mt_training_stages(limit=None):
     """Re-send every training stage result the partner has never acknowledged.
@@ -404,6 +425,15 @@ def reconcile_mt_training_stages(limit=None):
     abandoned = unacknowledged.filter(attempts__gte=MT_RECONCILE_MAX_ATTEMPTS).count()
 
     sent = 0
+
+    if pending and not bind_mt_tenant():
+        logger.error(
+            "MT reconciliation could not bind the MT tenant, so nothing was re-sent. "
+            "%s awaiting acknowledgement.",
+            actionable,
+        )
+
+        return {"resent": sent, "actionable": actionable, "abandoned": abandoned}
 
     for delivery in pending:
         update_mt_training_stage.delay(
