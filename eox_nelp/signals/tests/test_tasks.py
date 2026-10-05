@@ -31,6 +31,7 @@ from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.tasks import (
     _generate_progress_enrollment_data,
     _post_futurex_progress,
+    bind_mt_tenant,
     course_completion_mt_updater,
     create_course_mode,
     dispatch_futurex_progress,
@@ -1064,6 +1065,9 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         """Set common conditions for test cases."""
         self.course_id = "course-v1:test+Cx105+2022_T4"
         self.national_id = "1245789652"
+        bind_patcher = patch("eox_nelp.signals.tasks.bind_mt_tenant", return_value=True)
+        self.bind_mock = bind_patcher.start()
+        self.addCleanup(bind_patcher.stop)
 
     def tearDown(self):
         """Drop the delivery records after every test to keep standard conditions"""
@@ -1160,3 +1164,52 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         self.assertEqual(result["actionable"], 0)
         self.assertEqual(result["abandoned"], 0)
         task_mock.delay.assert_not_called()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_unbound_tenant_sends_nothing(self, task_mock):
+        """Test that nothing is queued when the MT tenant cannot be bound.
+
+        Without the tenant every queued task dies on the worker for lack of
+        credentials, so queuing them only produces tracebacks.
+
+        Expected behavior:
+            - Nothing is re-sent and the result stays actionable.
+            - The run logs at ERROR.
+        """
+        self.bind_mock.return_value = False
+        self.build_delivery(self.national_id, attempts=2)
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            result = reconcile_mt_training_stages()
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["ERROR"])
+        self.assertEqual(result["resent"], 0)
+        self.assertEqual(result["actionable"], 1)
+        task_mock.delay.assert_not_called()
+
+
+class BindMtTenantTestCase(unittest.TestCase):
+    """Test class for the bind_mt_tenant function."""
+
+    @override_settings(EDNX_TENANT_DOMAIN=tasks.MT_TENANT_DOMAIN)
+    @patch("eox_nelp.signals.tasks._update_settings")
+    def test_bound(self, update_settings_mock):
+        """Test that the MT tenant's lms_configs are applied and reported as bound.
+
+        Expected behavior:
+            - _update_settings is called with the MT domain and lms_configs.
+            - The function returns True.
+        """
+        self.assertTrue(bind_mt_tenant())
+        update_settings_mock.assert_called_once_with(tasks.MT_TENANT_DOMAIN, "lms_configs")
+
+    @override_settings(EDNX_TENANT_DOMAIN=None)
+    @patch("eox_nelp.signals.tasks._update_settings")
+    def test_not_bound(self, update_settings_mock):
+        """Test that a tenant which did not take effect is reported as unbound.
+
+        Expected behavior:
+            - The function returns False.
+        """
+        self.assertFalse(bind_mt_tenant())
+        update_settings_mock.assert_called_once()

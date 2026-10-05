@@ -12,11 +12,11 @@ To run it use:
 """
 import logging
 
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 
 from eox_nelp.edxapp_wrapper.certificates import models as certificates_models
 from eox_nelp.mt.models import MTTrainingStageDelivery
-from eox_nelp.signals.tasks import update_mt_training_stage
+from eox_nelp.signals.tasks import bind_mt_tenant, update_mt_training_stage
 from eox_nelp.utils import is_valid_national_id, normalize_national_id
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,9 @@ class Command(BaseCommand):
             self.stdout.write("Dry run. Re-run with --send to deliver these.")
 
             return
+
+        if not bind_mt_tenant():
+            raise CommandError("Could not bind the MT tenant, so nothing was queued.")
 
         for row in pending:
             MTTrainingStageDelivery.objects.get_or_create(  # pylint: disable=no-member
