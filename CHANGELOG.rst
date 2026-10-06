@@ -11,6 +11,12 @@ Change Log
 .. There should always be an "Unreleased" section for changes pending release.
 Unreleased
 ----------
+
+Added
+~~~~~
+* ``eox_nelp.mail.backends.PooledSMTPEmailBackend``: an SMTP email backend that keeps one authenticated
+  session open per process and thread, instead of reconnecting for every message.
+
 [1.0.0] - 2022-10-18
 ---------------------
 
