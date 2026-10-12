@@ -9,6 +9,7 @@ import hmac
 import time
 
 from django.conf import settings
+from django.shortcuts import redirect
 
 
 class GCPCloudCDNSignedCookieMiddleware:
@@ -106,4 +107,37 @@ class GCPCloudCDNSignedCookieMiddleware:
 
             response["Set-Cookie"] = "; ".join(parts)
 
+        return response
+
+
+class TenantRestrictionPathMiddleware:
+    """
+    Middleware to restrict access to certain paths based on user authentication.
+    """
+    def __init__(self, get_response):
+        """
+        Initialize the middleware with the response handler.
+        """
+        self.get_response = get_response
+
+    def __call__(self, request):
+        """
+        Process each request and restrict access based on user authentication.
+        """
+        tenant_restriction_paths = getattr(settings, "TENANT_RESTRICTION_PATHS", [])
+        current_path = request.path_info
+
+        # 1. Check if the current path matches any of the restricted prefixes.
+        is_restricted = any(
+            current_path.startswith(path) for path in tenant_restriction_paths
+        )
+
+        # 2. If the route is restricted and the user is NOT authenticated, redirect.
+        if is_restricted and not request.user.is_authenticated:
+            # Append the '?next=' parameter to return the user after login.
+            login_url = getattr(settings, "LOGIN_URL", "/login/")
+            return redirect(f"{login_url}?next={current_path}")
+
+        # 3. If everything is fine, proceed with the request.
+        response = self.get_response(request)
         return response
