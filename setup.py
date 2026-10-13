@@ -96,6 +96,7 @@ setup(
     entry_points={
         "lms.djangoapp": [
             'eox_nelp = eox_nelp.apps:EoxNelpConfig',
+            'eox_nelp_enrollment_api = eox_nelp.enrollment_api.apps:EnrollmentApiConfig',
         ],
         "cms.djangoapp": [
             'eox_nelp = eox_nelp.apps:EoxNelpCMSConfig',
