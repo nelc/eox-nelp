@@ -41,6 +41,17 @@ class CoreContractTestCase(SimpleTestCase):
         patterns = [str(entry.pattern) for entry in urls.urlpatterns]
         self.assertEqual([p for p in patterns if re.match(r"\^enrollment", p)], ["^enrollment/$"])
 
+    def test_core_route_the_takeover_swaps_is_unique_and_named(self):
+        """`take_over_core_enrollment_route` finds eox-core's route by this name and swaps its callback."""
+        from eox_core.api.v1 import urls  # pylint: disable=import-outside-toplevel
+
+        named = [entry for entry in urls.urlpatterns if entry.name == "edxapp-enrollment"]
+        self.assertEqual(len(named), 1)
+        self.assertEqual(str(named[0].pattern), "^enrollment/$")
+        self.assertTrue(hasattr(named[0], "callback"))
+        # Core builds it with as_view() at import (ours, once the takeover has run, is a subclass).
+        self.assertTrue(issubclass(named[0].callback.view_class, core_views.EdxappEnrollment))
+
     def test_batch_loop_matches_eox_cores_for_ok_and_failing_items(self):
         """Same status and body as core's loop (non-reserve input), item errors included."""
         def action(**query):

@@ -30,6 +30,10 @@ Functions:
         Overrides the default `RegistrationFormFactory` used in user authentication
         with the custom NELP implementation to support extended registration logic.
 
+    take_over_core_enrollment_route:
+        Points eox-core's `edxapp-enrollment` URL pattern at the eox-nelp enrollment view
+        (decision a2-url-takeover) and raises if eox-core no longer looks the way we expect.
+
     patch_form_fields_getattr:
         Dynamically patches the `form_fields` module to include a custom `__getattr__`
         method, enabling runtime generation of field handlers based on configuration.
@@ -38,6 +42,8 @@ Functions:
 import os
 
 from django.utils.translation import gettext_noop
+
+CORE_ENROLLMENT_ROUTE = "edxapp-enrollment"  # name of eox-core's enrollment URLPattern
 
 
 def run_lms_init_pipeline():
@@ -52,6 +58,7 @@ def run_lms_init_pipeline():
     patch_registration_form_factory()
     patch_form_fields_getattr()
     disconnect_update_last_login_signal()
+    take_over_core_enrollment_route()
 
 
 def run_cms_init_pipeline():
@@ -177,3 +184,31 @@ def disconnect_update_last_login_signal():
     from django.contrib.auth.signals import user_logged_in
     if getattr(settings, "DISABLE_UPDATE_LAST_LOGIN_SIGNAL", False):
         user_logged_in.disconnect(dispatch_uid="update_last_login")
+
+
+def take_over_core_enrollment_route():
+    """
+    Make POST /eox-core/api/v1/enrollment/ run `NelpEdxappEnrollment` (decision a2-url-takeover).
+
+    eox-core mounts itself as a plugin and builds this route with `EdxappEnrollment.as_view()` at
+    import time, and plugin URL order is not a contract, so a second route for the same URL may
+    lose. Instead we swap the `callback` of eox-core's own URLPattern: the module is a singleton
+    shared by every URL resolver, and Django reads `callback` at request time, so this holds
+    whatever the plugin or app order. Fails loudly if eox-core renames or removes the route.
+    """
+    # pylint: disable=import-outside-toplevel
+    # Imported here because eox-core's views need edx-platform settings that do not exist at plugin import.
+    from django.core.exceptions import ImproperlyConfigured
+    from eox_core.api.v1 import urls as core_urls
+
+    from eox_nelp.enrollment_api.views import NelpEdxappEnrollment
+
+    routes = [route for route in core_urls.urlpatterns if route.name == CORE_ENROLLMENT_ROUTE]
+    if len(routes) != 1:
+        raise ImproperlyConfigured(
+            f"eox-nelp enrollment takeover: expected exactly one eox-core route named "
+            f"'{CORE_ENROLLMENT_ROUTE}', found {len(routes)}. eox-core changed; review the override."
+        )
+    route = routes[0]
+    route.callback = NelpEdxappEnrollment.as_view()
+    route.__dict__.pop("lookup_str", None)  # cached name of the old callback, only used for display
