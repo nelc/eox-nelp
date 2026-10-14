@@ -2,10 +2,8 @@
 
     python manage.py lms test eox_nelp/tests/integration/test_enrollment_url_takeover.py   (or pytest in the image)
 
-Plugin URL order is whatever stevedore yields, so nothing in this repo can guarantee that the
-eox-nelp route is reached before eox-core's. If this fails, apply the decided fallback: replace
-`eox_core.api.v1.views.EdxappEnrollment` from `EnrollmentApiConfig.ready()` with a startup
-assertion, and pin tests that fail on any eox-core change.
+`EoxNelpConfig.ready()` swaps the callback of eox-core's own `edxapp-enrollment` route
+(`init_pipeline.take_over_core_enrollment_route`), so this must pass whatever the plugin order is.
 """
 import pytest
 
