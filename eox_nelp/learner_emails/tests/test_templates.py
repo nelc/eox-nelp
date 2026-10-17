@@ -29,7 +29,7 @@ class CertificateReadyTemplatesTestCase(TestCase):
             self.assertIn("شهادتك جاهزة", get_template(PATH + "subject.txt").render(CONTEXT))
 
     def test_greeting_without_a_name(self):
-        """(Text part; the HTML part extends the platform frame, checked in the previews.) A blank name gives the plain greeting, in every language, with no stray name or gap."""
+        """A blank name gives the plain greeting in every language (text part; the HTML part is checked in previews)."""
         expected = {"ar": "مبروك!", "en": "Congratulations!", "fr": "Félicitations !"}
         for language, greeting in expected.items():
             with translation.override(language):
