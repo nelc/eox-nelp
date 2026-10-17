@@ -111,14 +111,14 @@ class DeliverCertificateReadyTestCase(TestCase):
 
         self.mocks["send"].assert_not_called()
 
-    def test_blank_learner_name_fails_loudly(self):
-        """No name for the greeting: failure, not a silently different greeting."""
+    def test_blank_learner_name_still_sends(self):
+        """No profile name: the mail goes out (greeting without the name) and the row is written."""
         self.user.profile.name = ""
 
-        with self.assertRaises(ValueError):
-            deliver_certificate_ready(7, COURSE_ID)
+        deliver_certificate_ready(7, COURSE_ID)
 
-        self.mocks["send"].assert_not_called()
+        self.assertEqual(self.mocks["send"].call_args[0][0].context["full_name"], "")
+        self.assertEqual(self._rows(), 1)
 
     def test_undelivered_mail_releases_the_claim(self):
         """When ACE does not confirm the delivery the row is removed so the retry can send."""

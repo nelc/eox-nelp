@@ -53,7 +53,7 @@ def _certificate_context(user, certificate, overview, org):
         raise ValueError("The certificate has no page to link to")
 
     return {
-        "full_name": user.profile.name,
+        "full_name": user.profile.name,  # may be blank: the templates then greet without a name
         "course_name": overview.display_name,
         "certificate_url": f"{root}/{path.lstrip('/')}",
         "course_id": str(certificate.course_id),  # NOT `course_ids`: that key triggers the bulk-email opt-out policy
@@ -76,9 +76,6 @@ def deliver_certificate_ready(user_id, course_id):
         logger.info("certificate_ready_email skipped, no downloadable certificate user_id=%s course_id=%s",
                     user_id, course_id)
         return
-
-    if not user.profile.name:
-        raise ValueError("The learner has no name for the greeting")
 
     if not _claim(user_id, course_id, CERTIFICATE_READY):
         return

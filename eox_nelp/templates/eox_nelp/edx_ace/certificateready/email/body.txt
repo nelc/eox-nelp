@@ -1,4 +1,4 @@
-{% load i18n %}{% autoescape off %}{% blocktrans %}Congratulations {{ full_name }}!{% endblocktrans %}
+{% load i18n %}{% autoescape off %}{% if full_name %}{% blocktrans %}Congratulations {{ full_name }}!{% endblocktrans %}{% else %}{% trans "Congratulations!" %}{% endif %}
 
 {% trans "You have successfully completed the program" %}: {{ course_name }}
 

@@ -80,3 +80,7 @@ msgstr "شهادتك جاهزة للتحميل."
 #: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
 msgid "Download your certificate"
 msgstr "حمّل شهادتك"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Congratulations!"
+msgstr "مبروك!"
