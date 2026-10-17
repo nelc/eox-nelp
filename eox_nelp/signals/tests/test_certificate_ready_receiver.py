@@ -21,7 +21,7 @@ def _certificate(status="downloadable", course="course-v1:KSU+CS101+2026"):
 
 
 @ddt
-@patch(f"{MODULE}.send_certificate_ready_email")
+@patch("eox_nelp.learner_emails.tasks.send_certificate_ready_email")
 @patch(f"{MODULE}.configuration_helpers")
 class CertificateReadyReceiverTestCase(TestCase):
     """Only downloadable certificates of opted-in tenants are queued, after commit."""

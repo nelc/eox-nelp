@@ -17,7 +17,6 @@ from edx_ace import ace
 from edx_ace.recipient import Recipient
 from edx_ace.signals import ACE_MESSAGE_SENT
 from eox_tenant.tenant_wise.proxies import TenantSiteConfigProxy
-from eox_theming.theming.middleware import EoxThemeMiddleware
 from lms.djangoapps.certificates.data import CertificateStatuses
 from lms.djangoapps.certificates.models import GeneratedCertificate
 from lms.djangoapps.certificates.utils import get_certificate_url  # noqa: F401
@@ -66,6 +65,10 @@ def emulate_tenant_request(site, user):
     The stock middleware resolves the theme from the Site's SiteTheme row (one global theme). The
     eox-theming one resolves it from the tenant settings, so the caller must bind the tenant FIRST.
     """
+    # Imported here, not at module level: this module loads with the signal receivers in Studio
+    # too, and eox-theming's middleware reads LMS-only settings when it is imported.
+    from eox_theming.theming.middleware import EoxThemeMiddleware  # pylint: disable=import-outside-toplevel
+
     site.configuration = TenantSiteConfigProxy()  # what eox-tenant sets on a real request
     with emulate_http_request(
         site=site, user=user, middleware_classes=[CurrentRequestUserMiddleware, EoxThemeMiddleware],

@@ -33,7 +33,6 @@ from eox_nelp.edxapp_wrapper.contentstore import CourseAboutSearchIndexer
 from eox_nelp.edxapp_wrapper.modulestore import SignalHandler
 from eox_nelp.edxapp_wrapper.site_configuration import configuration_helpers
 from eox_nelp.external_certificates.tasks import create_external_certificate
-from eox_nelp.learner_emails.tasks import send_certificate_ready_email
 from eox_nelp.notifications.tasks import create_course_notifications as create_course_notifications_task
 from eox_nelp.payment_notifications.models import PaymentNotification
 from eox_nelp.pearson_vue_engine.tasks import real_time_import_task_v2
@@ -193,6 +192,9 @@ def certificate_ready_email_publisher(certificate, **kwargs):  # pylint: disable
 
     if enabled is not True:
         return
+
+    # Imported here: this module is also loaded by Studio, which lacks the LMS apps the task uses.
+    from eox_nelp.learner_emails.tasks import send_certificate_ready_email  # pylint: disable=import-outside-toplevel
 
     transaction.on_commit(
         lambda: send_certificate_ready_email.delay(user_id=certificate.user.id, course_id=str(course_key))
