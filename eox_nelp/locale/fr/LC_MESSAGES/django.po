@@ -34,3 +34,22 @@ msgstr "Télécharger votre certificat"
 #: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
 msgid "Congratulations!"
 msgstr "Félicitations !"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s hour"
+msgid_plural "%(count)s hours"
+msgstr[0] "%(count)s heure"
+msgstr[1] "%(count)s heures"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s minute"
+msgid_plural "%(count)s minutes"
+msgstr[0] "%(count)s minute"
+msgstr[1] "%(count)s minutes"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(hours)s and %(minutes)s"
+msgstr "%(hours)s et %(minutes)s"
