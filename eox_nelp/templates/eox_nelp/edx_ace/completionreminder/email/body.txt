@@ -1,0 +1,7 @@
+{% load i18n %}{% autoescape off %}{% if full_name %}{% blocktrans %}Hello {{ full_name }},{% endblocktrans %}{% else %}{% trans "Hello," %}{% endif %}
+
+{% blocktrans %}You have completed {{ completed_percent }}% — well done!{% endblocktrans %}
+{{ course_name }}
+{% blocktrans %}Remaining: {{ remaining_percent }}%{% endblocktrans %}
+
+{% trans "Complete now" %}: {{ course_url }}{% endautoescape %}

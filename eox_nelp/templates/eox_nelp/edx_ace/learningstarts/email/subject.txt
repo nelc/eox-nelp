@@ -1,0 +1,1 @@
+{% load i18n %}{% autoescape off %}{% blocktrans %}Start now — {{ course_name }}{% endblocktrans %}{% endautoescape %}

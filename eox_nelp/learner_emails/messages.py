@@ -14,3 +14,21 @@ class CertificateReady(BaseMessageType):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.options["transactional"] = True
+
+
+class LearningStarts(BaseMessageType):
+    """The course the learner enrolled in before its start has started (Message 3)."""
+    APP_LABEL = "eox_nelp"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.options["transactional"] = True
+
+
+class CompletionReminder(BaseMessageType):
+    """The learner is close to completing the course, by progress or by the course end date (Message 5)."""
+    APP_LABEL = "eox_nelp"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.options["transactional"] = True

@@ -53,3 +53,51 @@ msgstr[1] "%(count)s minutes"
 #, python-format
 msgid "%(hours)s and %(minutes)s"
 msgstr "%(hours)s et %(minutes)s"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Hello %(full_name)s,"
+msgstr "Bonjour %(full_name)s,"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Hello,"
+msgstr "Bonjour,"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Start now — %(course_name)s"
+msgstr "Commencez maintenant — %(course_name)s"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "The program content is now available to you"
+msgstr "Le contenu du programme est maintenant disponible"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Your journey to a new skill starts now."
+msgstr "Votre parcours vers une nouvelle compétence commence maintenant."
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Join the discussion space — your learning multiplies when ideas are exchanged."
+msgstr "Participez à l'espace de discussion — l'échange d'idées décuple votre apprentissage."
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Start learning"
+msgstr "Commencer l'apprentissage"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Only a little left to complete your program"
+msgstr "Plus que quelques efforts pour terminer votre programme"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "You have completed %(completed_percent)s%% — well done!"
+msgstr "Vous avez accompli %(completed_percent)s %% — bravo !"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Remaining: %(remaining_percent)s%%"
+msgstr "Restant : %(remaining_percent)s %%"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Complete now"
+msgstr "Terminer maintenant"

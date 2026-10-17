@@ -29,6 +29,17 @@ get_downloadable_certificate = Mock()
 get_certificate_url = Mock(return_value="/certificates/abc")
 iter_downloadable_certificates = Mock(return_value=iter(()))
 
+list_orgs = Mock(return_value=[])
+find_started_courses = Mock(return_value=[])
+find_courses_ending = Mock(return_value=[])
+find_running_courses = Mock(return_value=[])
+iter_enrollments = Mock(return_value=iter(()))
+iter_progress = Mock(return_value=iter(()))
+get_progress = Mock(return_value=0.0)
+is_enrolled = Mock(return_value=True)
+has_certificate = Mock(return_value=False)
+get_course_path = Mock(return_value="/courses/x/course/")
+
 
 def emulate_tenant_request(site, user):  # pylint: disable=unused-argument
     """Test stand-in for the real context manager."""
