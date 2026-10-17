@@ -29,6 +29,15 @@ def _minutes_text(count):
     return ngettext("%(count)s minute", "%(count)s minutes", count) % {"count": count}
 
 
+def _hhmm_text(hours, minutes):
+    """Text of an "HH:MM" value: hours, plus minutes only when non-zero (minutes alone for "0:30")."""
+    if not minutes:
+        return _hours_text(hours, hours)
+    if not hours:
+        return _minutes_text(minutes)
+    return _("%(hours)s and %(minutes)s") % {"hours": _hours_text(hours, hours), "minutes": _minutes_text(minutes)}
+
+
 def format_effort_hours(effort):
     """Return the effort as a localized, pluralised duration; text that is not a number comes back as typed.
 
@@ -36,23 +45,15 @@ def format_effort_hours(effort):
     a whole number of hours ("4") and a decimal ("1.5"). A blank value gives "". Anything else
     ("about a week") is returned exactly as it was typed, never guessed at.
     """
-    if effort is None or not str(effort).strip():
-        return ""
+    text = "" if effort is None else str(effort).strip()
+    hhmm = HH_MM.match(text)
+    result = str(effort) if text else ""
 
-    text = str(effort).strip()
+    if hhmm:
+        result = _hhmm_text(int(hhmm.group(1)), int(hhmm.group(2)))
+    elif INTEGER.match(text):
+        result = _hours_text(int(text), int(text))
+    elif DECIMAL.match(text):
+        result = _hours_text(FRACTION_PLURAL_COUNT, Decimal(text).normalize())
 
-    if match := HH_MM.match(text):
-        hours, minutes = int(match.group(1)), int(match.group(2))
-        if not minutes:
-            return _hours_text(hours, hours)
-        if not hours:
-            return _minutes_text(minutes)
-        return _("%(hours)s and %(minutes)s") % {"hours": _hours_text(hours, hours), "minutes": _minutes_text(minutes)}
-
-    if INTEGER.match(text):
-        return _hours_text(int(text), int(text))
-
-    if DECIMAL.match(text):
-        return _hours_text(FRACTION_PLURAL_COUNT, Decimal(text).normalize())
-
-    return str(effort)
+    return result
