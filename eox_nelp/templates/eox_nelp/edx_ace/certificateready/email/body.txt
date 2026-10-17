@@ -1,0 +1,7 @@
+{% load i18n %}{% autoescape off %}{% blocktrans %}Congratulations {{ full_name }}!{% endblocktrans %}
+
+{% trans "You have successfully completed the program" %}: {{ course_name }}
+
+{% trans "Your certificate is ready to download." %}
+{% trans "Download your certificate" %}: {{ certificate_url }}
+{% endautoescape %}

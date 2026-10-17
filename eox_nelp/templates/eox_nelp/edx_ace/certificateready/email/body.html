@@ -1,0 +1,24 @@
+{% extends 'ace_common/edx_ace/common/base_body.html' %}
+{% comment %}
+Default look of the certificate-ready e-mail, on the stock edx-ace frame. It is what a tenant gets
+when its theme does not override this file; the branded version lives in futurex-theme at the same path.
+{% endcomment %}
+{% load i18n %}
+
+{% block preview_text %}{% trans "Your certificate is ready to download." %}{% endblock %}
+
+{% block content %}
+<table width="100%" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr>
+        <td>
+            <h1>{% blocktrans %}Congratulations {{ full_name }}!{% endblocktrans %}</h1>
+            <p style="color: rgba(0,0,0,.75);">{% trans "You have successfully completed the program" %}</p>
+            <p style="color: rgba(0,0,0,.75);"><strong>{{ course_name }}</strong></p>
+            <p style="color: rgba(0,0,0,.75);">{% trans "Your certificate is ready to download." %}</p>
+
+            {% trans "Download your certificate" as course_cta_text %}
+            {% include "ace_common/edx_ace/common/return_to_course_cta.html" with course_cta_text=course_cta_text course_cta_url=certificate_url %}
+        </td>
+    </tr>
+</table>
+{% endblock %}

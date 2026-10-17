@@ -59,3 +59,24 @@ msgstr ""
 #: eox_nelp/user_profile/api/v1/helpers.py:36
 msgid "Invalid phone number"
 msgstr "رقم الهاتف غير صالح"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "🎉 Your certificate is ready"
+msgstr "🎉 شهادتك جاهزة"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+#, python-format
+msgid "Congratulations %(full_name)s!"
+msgstr "مبروك %(full_name)s!"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "You have successfully completed the program"
+msgstr "أتممت البرنامج بنجاح"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Your certificate is ready to download."
+msgstr "شهادتك جاهزة للتحميل."
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Download your certificate"
+msgstr "حمّل شهادتك"
