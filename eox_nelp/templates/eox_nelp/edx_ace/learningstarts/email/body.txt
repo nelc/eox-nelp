@@ -1,0 +1,8 @@
+{% load i18n %}{% autoescape off %}{% if full_name %}{% blocktrans %}Hello {{ full_name }},{% endblocktrans %}{% else %}{% trans "Hello," %}{% endif %}
+
+{% trans "The program content is now available to you" %}
+{{ course_name }}
+{% trans "Your journey to a new skill starts now." %}
+{% trans "Join the discussion space — your learning multiplies when ideas are exchanged." %}
+
+{% trans "Start learning" %}: {{ course_url }}{% endautoescape %}

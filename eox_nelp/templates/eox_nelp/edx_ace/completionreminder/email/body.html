@@ -1,0 +1,23 @@
+{% extends 'ace_common/edx_ace/common/base_body.html' %}
+{% comment %}
+Default look on the stock edx-ace frame (tenants whose theme does not override this file);
+the branded version lives in futurex-theme at the same path.
+{% endcomment %}
+{% load i18n %}
+
+{% block preview_text %}{% trans "Only a little left to complete your program" %}{% endblock %}
+
+{% block content %}
+<table width="100%" align="left" border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tr>
+        <td>
+            <p style="color: rgba(0,0,0,.75);"><strong>{% if full_name %}{% blocktrans %}Hello {{ full_name }},{% endblocktrans %}{% else %}{% trans "Hello," %}{% endif %}</strong></p>
+            <p style="color: rgba(0,0,0,.75);"><strong>{% blocktrans %}You have completed {{ completed_percent }}% — well done!{% endblocktrans %}</strong></p>
+            <p style="color: rgba(0,0,0,.75);">{{ course_name }}</p>
+            <p style="color: rgba(0,0,0,.75);">{% blocktrans %}Remaining: {{ remaining_percent }}%{% endblocktrans %}</p>
+            {% trans "Complete now" as course_cta_text %}
+            {% include "ace_common/edx_ace/common/return_to_course_cta.html" with course_cta_text=course_cta_text course_cta_url=course_url %}
+        </td>
+    </tr>
+</table>
+{% endblock %}

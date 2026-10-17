@@ -4,6 +4,9 @@ from django.utils import timezone
 
 # `kind` values. A new learner e-mail adds a constant here, nothing else changes in the table.
 CERTIFICATE_READY = "certificate_ready"
+LEARNING_STARTS = "learning_starts"
+REMINDER_PROGRESS = "reminder_progress"  # Message 5, trigger (a): progress at/over the tenant threshold
+REMINDER_END = "reminder_end"  # Message 5, trigger (b): the course end date is inside the window
 
 
 class LearnerEmailLog(models.Model):

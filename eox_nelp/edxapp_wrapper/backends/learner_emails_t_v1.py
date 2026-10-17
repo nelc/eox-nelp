@@ -8,8 +8,11 @@ Sources (edx-platform, open-release/teak.nelp):
 # pylint: disable=import-error
 from contextlib import contextmanager
 
+from common.djangoapps.student.models import CourseEnrollment
+from completion_aggregator.models import Aggregator
 from crum import CurrentRequestUserMiddleware, get_current_request
 from django.contrib.sites.models import Site
+from django.urls import reverse
 from edx_ace import ace
 from edx_ace.recipient import Recipient
 from edx_ace.signals import ACE_MESSAGE_SENT
@@ -93,3 +96,70 @@ def iter_downloadable_certificates(org):
 
     for user_id, course_id in certificates.iterator(chunk_size=2000):
         yield user_id, str(course_id)
+
+
+def _course_rows(queryset):
+    """(course_id, org, start, end) of the overviews, as plain tuples (no ORM objects leave the backend)."""
+    return [(str(c.id), c.org, c.start, c.end) for c in queryset.only("id", "org", "start", "end")]
+
+
+def list_orgs():
+    """Every org that has at least one course."""
+    return list(CourseOverview.objects.values_list("org", flat=True).distinct())
+
+
+def find_started_courses(org, since, until):
+    """Courses of the org whose start is in [since, until]."""
+    return _course_rows(CourseOverview.objects.filter(org=org, start__gte=since, start__lte=until))
+
+
+def find_courses_ending(org, since, until):
+    """Courses of the org whose end is in [since, until]."""
+    return _course_rows(CourseOverview.objects.filter(org=org, end__gte=since, end__lte=until))
+
+
+def find_running_courses(org, now):
+    """Courses of the org that have started and have not ended."""
+    started = CourseOverview.objects.filter(org=org, start__lte=now)
+    return _course_rows(started.filter(end__isnull=True) | started.filter(end__gt=now))
+
+
+def iter_enrollments(course_id):
+    """(user_id, created) of the ACTIVE enrollments of the course, streamed."""
+    rows = CourseEnrollment.objects.filter(course_id=course_id, is_active=True, user__is_active=True)
+    return rows.values_list("user_id", "created").iterator(chunk_size=2000)
+
+
+def iter_progress(course_id, min_percent):
+    """(user_id, percent) of the course-level completion rows at or over `min_percent`, streamed.
+
+    Uses the (course_key, aggregation_name, ...) index of the aggregator table; the aggregate is
+    refreshed hourly by `run_aggregator_service`, so the number is up to about an hour old.
+    """
+    rows = Aggregator.objects.filter(course_key=course_id, aggregation_name="course", percent__gte=min_percent)
+    return rows.values_list("user_id", "percent").iterator(chunk_size=2000)
+
+
+def get_progress(user_id, course_id):
+    """The learner's course completion (0..1); 0 when the aggregate has no row for them yet."""
+    percent = Aggregator.objects.filter(
+        user_id=user_id, course_key=course_id, aggregation_name="course",
+    ).values_list("percent", flat=True).first()
+    return percent or 0.0
+
+
+def is_enrolled(user_id, course_id):
+    """True when the learner has an active enrollment in the course."""
+    return CourseEnrollment.objects.filter(user_id=user_id, course_id=course_id, is_active=True).exists()
+
+
+def has_certificate(user_id, course_id):
+    """True when the learner already holds a downloadable certificate for the course."""
+    return GeneratedCertificate.objects.filter(
+        user_id=user_id, course_id=course_id, status=CertificateStatuses.downloadable,
+    ).exists()
+
+
+def get_course_path(course_id):
+    """Path of the course home page."""
+    return reverse("course_root", kwargs={"course_id": str(course_id)})

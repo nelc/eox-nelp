@@ -111,3 +111,51 @@ msgstr[5] "%(count)s دقيقة"
 #, python-format
 msgid "%(hours)s and %(minutes)s"
 msgstr "%(hours)s و%(minutes)s"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Hello %(full_name)s,"
+msgstr "مرحبًا %(full_name)s،"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Hello,"
+msgstr "مرحبًا،"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Start now — %(course_name)s"
+msgstr "ابدأ الآن — %(course_name)s"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "The program content is now available to you"
+msgstr "محتوى البرنامج أصبح متاحًا لك"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Your journey to a new skill starts now."
+msgstr "رحلتك نحو مهارة جديدة تبدأ الآن."
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Join the discussion space — your learning multiplies when ideas are exchanged."
+msgstr "شارك في مساحة النقاشات — تعلّمك يتضاعف بتبادل الأفكار."
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Start learning"
+msgstr "ابدأ التعلم"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Only a little left to complete your program"
+msgstr "تبقّى القليل لإتمام برنامجك"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "You have completed %(completed_percent)s%% — well done!"
+msgstr "أنجزت %(completed_percent)s٪ — أحسنت!"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+#, python-format
+msgid "Remaining: %(remaining_percent)s%%"
+msgstr "المتبقي: %(remaining_percent)s٪"
+
+#: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
+msgid "Complete now"
+msgstr "أكمل الآن"

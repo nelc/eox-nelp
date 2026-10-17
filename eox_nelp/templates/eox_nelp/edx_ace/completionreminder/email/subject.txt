@@ -1,0 +1,1 @@
+{% load i18n %}{% autoescape off %}{% trans "Only a little left to complete your program" %}{% endautoescape %}
