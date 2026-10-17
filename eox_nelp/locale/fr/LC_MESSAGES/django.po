@@ -1,0 +1,55 @@
+# eox-nelp French translation file (DRAFT: new strings need a French speaker's approval, cr-french-wording).
+msgid ""
+msgstr ""
+"Project-Id-Version: eox-nelp\n"
+"Report-Msgid-Bugs-To: \n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "🎉 Your certificate is ready"
+msgstr "🎉 Votre certificat est prêt"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+#, python-format
+msgid "Congratulations %(full_name)s!"
+msgstr "Félicitations %(full_name)s !"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "You have successfully completed the program"
+msgstr "Vous avez terminé le programme avec succès"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Your certificate is ready to download."
+msgstr "Votre certificat est prêt à être téléchargé."
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Download your certificate"
+msgstr "Télécharger votre certificat"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Congratulations!"
+msgstr "Félicitations !"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s hour"
+msgid_plural "%(count)s hours"
+msgstr[0] "%(count)s heure"
+msgstr[1] "%(count)s heures"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s minute"
+msgid_plural "%(count)s minutes"
+msgstr[0] "%(count)s minute"
+msgstr[1] "%(count)s minutes"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(hours)s and %(minutes)s"
+msgstr "%(hours)s et %(minutes)s"

@@ -44,6 +44,7 @@ def test_plugin_settings(settings):  # pylint: disable=too-many-statements
     settings.EOX_NELP_DJANGO_COMMENT_COMMON_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.django_comment_common_r_v1'
     settings.EOX_NELP_CONTENTSTORE = 'eox_nelp.edxapp_wrapper.test_backends.contentstore_r_v1'
     settings.EOX_NELP_ENROLLMENT_API_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.enrollment_api_m_v1'
+    settings.EOX_NELP_LEARNER_EMAILS_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.learner_emails_t_v1'
     settings.EOX_NELP_ENROLLMENT_LOG_SALT = 'test-salt'
 
     settings.EOX_NELP_MFE_CONFIG_API_CACHE_TIMEOUT = 300

@@ -59,3 +59,55 @@ msgstr ""
 #: eox_nelp/user_profile/api/v1/helpers.py:36
 msgid "Invalid phone number"
 msgstr "رقم الهاتف غير صالح"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "🎉 Your certificate is ready"
+msgstr "🎉 شهادتك جاهزة"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+#, python-format
+msgid "Congratulations %(full_name)s!"
+msgstr "مبروك %(full_name)s!"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "You have successfully completed the program"
+msgstr "أتممت البرنامج بنجاح"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Your certificate is ready to download."
+msgstr "شهادتك جاهزة للتحميل."
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Download your certificate"
+msgstr "حمّل شهادتك"
+
+#: eox_nelp/templates/eox_nelp/edx_ace/certificateready/email
+msgid "Congratulations!"
+msgstr "مبروك!"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s hour"
+msgid_plural "%(count)s hours"
+msgstr[0] "%(count)s ساعة"
+msgstr[1] "ساعة واحدة"
+msgstr[2] "ساعتان"
+msgstr[3] "%(count)s ساعات"
+msgstr[4] "%(count)s ساعة"
+msgstr[5] "%(count)s ساعة"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(count)s minute"
+msgid_plural "%(count)s minutes"
+msgstr[0] "%(count)s دقيقة"
+msgstr[1] "دقيقة واحدة"
+msgstr[2] "دقيقتان"
+msgstr[3] "%(count)s دقائق"
+msgstr[4] "%(count)s دقيقة"
+msgstr[5] "%(count)s دقيقة"
+
+#: eox_nelp/effort.py
+#, python-format
+msgid "%(hours)s and %(minutes)s"
+msgstr "%(hours)s و%(minutes)s"

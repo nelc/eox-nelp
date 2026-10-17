@@ -7,6 +7,7 @@ Functions:
     course_grade_changed_progress_publisher: it will publish the user progress based on COURSE_GRADE_CHANGED signal.
     create_course_notifications: this will create upcoming notifications based on the sub-section due dates.
     certificate_publisher: Publish the user certificate data to the NELC certificates service.
+    certificate_ready_email_publisher: Queue the "your certificate is ready" e-mail for opted-in tenants.
     include_tracker_context: Append tracker context to async task data.
     update_async_tracker_context: Update tracker context based on the task data.
     emit_subsection_attempt_event: Emits an event when a graded subsection has been attempted.
@@ -19,6 +20,7 @@ import logging
 from crum import get_current_user
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.dispatch import receiver
 from edx_django_utils.db.read_replica import use_read_replica_if_available
 from eox_core.edxapp_wrapper.grades import get_course_grade_factory
@@ -168,6 +170,35 @@ def certificate_publisher(certificate, metadata, **kwargs):  # pylint: disable=u
             certificate.user.pii.username,
             certificate.course.course_key,
         )
+
+
+def certificate_ready_email_publisher(certificate, **kwargs):  # pylint: disable=unused-argument
+    """Receiver of CERTIFICATE_CREATED that queues the "your certificate is ready" e-mail.
+
+    The event fires on EVERY save of a passing certificate (including `generating`), so only the
+    `downloadable` status counts; repeated saves are made harmless by the log table the task claims.
+    The mail is opt-in per tenant: the tenant key `CERTIFICATE_READY_EMAIL_ENABLED` must be exactly
+    `true` (default off, and read for the course's org so tenant A never enables tenant B).
+    It is queued after the surrounding transaction commits, otherwise the worker may not see the row.
+
+    Args:
+        certificate<CertificateData>: Certificate data of the openedx-events CERTIFICATE_CREATED signal.
+    """
+    if certificate.current_status != "downloadable":
+        return
+
+    course_key = certificate.course.course_key
+    enabled = configuration_helpers.get_value_for_org(course_key.org, "CERTIFICATE_READY_EMAIL_ENABLED", False)
+
+    if enabled is not True:
+        return
+
+    # Imported here: this module is also loaded by Studio, which lacks the LMS apps the task uses.
+    from eox_nelp.learner_emails.tasks import send_certificate_ready_email  # pylint: disable=import-outside-toplevel
+
+    transaction.on_commit(
+        lambda: send_certificate_ready_email.delay(user_id=certificate.user.id, course_id=str(course_key))
+    )
 
 
 def enrollment_publisher(instance, **kwargs):  # pylint: disable=unused-argument
