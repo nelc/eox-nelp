@@ -59,6 +59,17 @@ def run_lms_init_pipeline():
     patch_form_fields_getattr()
     disconnect_update_last_login_signal()
     take_over_core_enrollment_route()
+    register_learner_email_tasks()
+
+
+def register_learner_email_tasks():
+    """Load the learner-email Celery tasks in the LMS so its workers register them.
+
+    Celery only auto-discovers `<app>.tasks` modules, and the signal receivers import these tasks
+    lazily (Studio must not load them), so nothing else imports the module in an LMS worker: the
+    workers then reject `send_certificate_ready_email` as an unregistered task.
+    """
+    import eox_nelp.learner_emails.tasks  # noqa: F401  pylint: disable=import-outside-toplevel,unused-import
 
 
 def run_cms_init_pipeline():
