@@ -9,7 +9,6 @@ Sources (edx-platform, open-release/teak.nelp):
 from contextlib import contextmanager
 
 from common.djangoapps.student.models import CourseEnrollment
-from completion_aggregator.models import Aggregator
 from crum import CurrentRequestUserMiddleware, get_current_request
 from django.contrib.sites.models import Site
 from django.urls import reverse
@@ -133,19 +132,30 @@ def iter_enrollments(course_id):
     return rows.values_list("user_id", "created").iterator(chunk_size=2000)
 
 
+def _aggregator():
+    """The completion-aggregator model, imported on use.
+
+    Not a module-level import: the LMS loads this module at startup (to register the e-mail tasks)
+    and openedx-completion-aggregator is not installed everywhere (e.g. the Tutor integration
+    stacks). Where it is missing, only the progress reminder fails, loudly, when it runs.
+    """
+    from completion_aggregator.models import Aggregator  # pylint: disable=import-outside-toplevel
+    return Aggregator
+
+
 def iter_progress(course_id, min_percent):
     """(user_id, percent) of the course-level completion rows at or over `min_percent`, streamed.
 
     Uses the (course_key, aggregation_name, ...) index of the aggregator table; the aggregate is
     refreshed hourly by `run_aggregator_service`, so the number is up to about an hour old.
     """
-    rows = Aggregator.objects.filter(course_key=course_id, aggregation_name="course", percent__gte=min_percent)
+    rows = _aggregator().objects.filter(course_key=course_id, aggregation_name="course", percent__gte=min_percent)
     return rows.values_list("user_id", "percent").iterator(chunk_size=2000)
 
 
 def get_progress(user_id, course_id):
     """The learner's course completion (0..1); 0 when the aggregate has no row for them yet."""
-    percent = Aggregator.objects.filter(
+    percent = _aggregator().objects.filter(
         user_id=user_id, course_key=course_id, aggregation_name="course",
     ).values_list("percent", flat=True).first()
     return percent or 0.0

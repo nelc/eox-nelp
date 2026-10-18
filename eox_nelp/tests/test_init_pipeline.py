@@ -7,12 +7,13 @@ Classes:
 import os
 from unittest.mock import call
 
+from celery import current_app
 from django.test import TestCase
-from mock import patch
+from mock import DEFAULT, patch
 
 from eox_nelp import static as templates
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
-from eox_nelp.init_pipeline import run_lms_init_pipeline, set_mako_templates
+from eox_nelp.init_pipeline import register_learner_email_tasks, run_lms_init_pipeline, set_mako_templates
 
 
 class RunInitPipelineTestCase(TestCase):
@@ -44,6 +45,48 @@ class RunInitPipelineTestCase(TestCase):
         register_xapi_transformers_mock.assert_called_once()
         patch_generate_password_mock.assert_called_once()
         patch_form_fields_getattr_mock.assert_called_once()
+
+    @patch.multiple(
+        "eox_nelp.init_pipeline",
+        patch_user_gender_choices=DEFAULT,
+        set_mako_templates=DEFAULT,
+        register_xapi_transformers=DEFAULT,
+        update_permissions=DEFAULT,
+        patch_generate_password=DEFAULT,
+        patch_registration_form_factory=DEFAULT,
+        patch_form_fields_getattr=DEFAULT,
+        disconnect_update_last_login_signal=DEFAULT,
+        take_over_core_enrollment_route=DEFAULT,
+        register_learner_email_tasks=DEFAULT,
+    )
+    def test_pipeline_registers_learner_email_tasks(self, **mocks):
+        """The LMS pipeline loads the learner-email tasks (Studio's pipeline does not).
+
+        Expected behavior:
+            - register_learner_email_tasks is called once.
+        """
+        run_lms_init_pipeline()
+
+        mocks["register_learner_email_tasks"].assert_called_once()
+
+
+class RegisterLearnerEmailTasksTestCase(TestCase):
+    """Test class for register_learner_email_tasks method."""
+
+    def test_tasks_are_registered_in_celery(self):
+        """A worker that ran the LMS pipeline knows every learner-email task by name.
+
+        Expected behavior:
+            - The three task names are in the Celery app's task registry.
+        """
+        register_learner_email_tasks()
+
+        for name in (
+            "eox_nelp.learner_emails.tasks.send_certificate_ready_email",
+            "eox_nelp.learner_emails.tasks.send_learning_starts_email",
+            "eox_nelp.learner_emails.tasks.send_completion_reminder_email",
+        ):
+            self.assertIn(name, current_app.tasks)
 
 
 class SetMakoTemplatesTestCase(TestCase):
