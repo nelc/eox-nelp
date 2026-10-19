@@ -37,11 +37,17 @@ Functions:
     patch_form_fields_getattr:
         Dynamically patches the `form_fields` module to include a custom `__getattr__`
         method, enabling runtime generation of field handlers based on configuration.
+
+    patch_scorm_get_file_path:
+        Fixes SCORM package uploads on Google Cloud Storage (openedx-scorm-xblock 19.0.5).
+        See `eox_nelp.scorm_patches`.
 """
 
 import os
 
 from django.utils.translation import gettext_noop
+
+from eox_nelp.scorm_patches import patch_scorm_get_file_path
 
 CORE_ENROLLMENT_ROUTE = "edxapp-enrollment"  # name of eox-core's enrollment URLPattern
 
@@ -60,6 +66,7 @@ def run_lms_init_pipeline():
     disconnect_update_last_login_signal()
     take_over_core_enrollment_route()
     register_learner_email_tasks()
+    patch_scorm_get_file_path()
 
 
 def register_learner_email_tasks():
@@ -77,6 +84,7 @@ def run_cms_init_pipeline():
     Executes multiple processes that must run before starting the cms django application.
     """
     disconnect_update_last_login_signal()
+    patch_scorm_get_file_path()
 
 
 def patch_user_gender_choices():

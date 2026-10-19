@@ -394,6 +394,8 @@ openedx-events==9.14.1
     #   event-tracking
 openedx-filters==1.9.0
     # via -r requirements/base.txt
+openedx-scorm-xblock==19.0.5
+    # via -r requirements/test.in
 packaging==26.2
     # via
     #   -r requirements/base.txt
@@ -647,6 +649,7 @@ wcwidth==0.8.2
 web-fragments==4.0.0
     # via
     #   -r requirements/base.txt
+    #   openedx-scorm-xblock
     #   xblock
 webob==1.8.10
     # via
@@ -656,6 +659,7 @@ xblock==6.1.0
     # via
     #   -r requirements/base.txt
     #   edx-when
+    #   openedx-scorm-xblock
 xmltodict==0.13.0
     # via -r requirements/base.txt
 

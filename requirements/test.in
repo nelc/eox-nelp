@@ -13,3 +13,4 @@ path.py
 django-fake-model
 ddt
 flake8
+openedx-scorm-xblock==19.0.5  # same version as the strains pin; guards eox_nelp/scorm_patches.py

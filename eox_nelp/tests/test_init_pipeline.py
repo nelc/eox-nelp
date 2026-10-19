@@ -19,6 +19,7 @@ from eox_nelp.init_pipeline import register_learner_email_tasks, run_lms_init_pi
 class RunInitPipelineTestCase(TestCase):
     """Test class for run_lms_init_pipeline method."""
 
+    @patch("eox_nelp.init_pipeline.patch_scorm_get_file_path")
     @patch("eox_nelp.init_pipeline.patch_form_fields_getattr")
     @patch("eox_nelp.init_pipeline.patch_generate_password")
     @patch("eox_nelp.init_pipeline.register_xapi_transformers")
@@ -31,6 +32,7 @@ class RunInitPipelineTestCase(TestCase):
         register_xapi_transformers_mock,
         patch_generate_password_mock,
         patch_form_fields_getattr_mock,
+        patch_scorm_get_file_path_mock,
     ):
         """ Test that method calls the expected methods during the pipeline execution.
 
@@ -45,6 +47,7 @@ class RunInitPipelineTestCase(TestCase):
         register_xapi_transformers_mock.assert_called_once()
         patch_generate_password_mock.assert_called_once()
         patch_form_fields_getattr_mock.assert_called_once()
+        patch_scorm_get_file_path_mock.assert_called_once()
 
     @patch.multiple(
         "eox_nelp.init_pipeline",
@@ -58,6 +61,7 @@ class RunInitPipelineTestCase(TestCase):
         disconnect_update_last_login_signal=DEFAULT,
         take_over_core_enrollment_route=DEFAULT,
         register_learner_email_tasks=DEFAULT,
+        patch_scorm_get_file_path=DEFAULT,
     )
     def test_pipeline_registers_learner_email_tasks(self, **mocks):
         """The LMS pipeline loads the learner-email tasks (Studio's pipeline does not).
