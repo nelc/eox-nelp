@@ -5,13 +5,15 @@ Classes:
     GetCompletionSummaryTestCase: Test get_completion_summary method.
     GenerateProgressEnrollmentDataTestCase: Test _generate_progress_enrollment_data method.
     UpdateMtTrainingStageTestCase: Test update_mt_training_stage task.
+    MtDeliveryRaceTestCase: Test parallel sends of the same MT result.
+    MtDeliveryDueFilterTestCase: Test the MT retry schedule.
     CourseCompletionMtUpdaterTestCase: Test course_completion_mt_updater task.
 """
 import unittest
 from datetime import timedelta
 
 from custom_reg_form.models import ExtraInfo
-from ddt import data, ddt
+from ddt import data, ddt, unpack
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -29,8 +31,12 @@ from eox_nelp.mt.models import MTTrainingStageDelivery
 from eox_nelp.signals import tasks
 from eox_nelp.signals.exceptions import MTTrainingStageError
 from eox_nelp.signals.tasks import (
+    _claim_mt_delivery,
     _generate_progress_enrollment_data,
+    _get_mt_delivery,
+    _mt_delivery_due_filter,
     _post_futurex_progress,
+    _record_mt_delivery,
     bind_mt_tenant,
     course_completion_mt_updater,
     create_course_mode,
@@ -794,6 +800,195 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         self.assertEqual(logs.output, [f"ERROR:eox_nelp.signals.tasks:{log_msg}"])
 
 
+class MtDeliveryRaceTestCase(unittest.TestCase):
+    """Test parallel sends of the same result.
+
+    The completion receiver and the pass event can queue one result several times
+    within milliseconds (prod, 2026-10-07: six copies in under 0.1 s, one code 100 and
+    five code 110). Each copy loads the delivery record before any of them writes, so
+    these tests hand out records loaded up front, as the parallel copies hold them.
+    """
+
+    def setUp(self):
+        """Set common conditions for test cases."""
+        self.course_id = "course-v1:test+Cx105+2022_T4"
+        self.national_id = "1245789652"
+        self.stage_result = 1
+
+    def tearDown(self):
+        """Drop the delivery records after every test to keep standard conditions"""
+        MTTrainingStageDelivery.objects.all().delete()  # pylint: disable=no-member
+
+    def load_delivery(self):
+        """Load the delivery record the way each parallel copy does."""
+        return _get_mt_delivery(self.national_id, self.course_id, self.stage_result)
+
+    def reload_delivery(self):
+        """Read the delivery record as it is now stored."""
+        return MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+
+    def test_only_one_parallel_send_claims_the_result(self):
+        """Test that two copies which both saw an unsent record do not both send.
+
+        Expected behavior:
+            - The first claim succeeds and the second one fails.
+            - The send is counted once.
+        """
+        first, second = self.load_delivery(), self.load_delivery()
+
+        self.assertTrue(_claim_mt_delivery(first, is_retry=False))
+        self.assertFalse(_claim_mt_delivery(second, is_retry=False))
+        self.assertEqual(self.reload_delivery().attempts, 1)
+
+    def test_a_rejection_recorded_after_the_acknowledgement_does_not_undo_it(self):
+        """Test that a late 110 from a parallel copy leaves the 100 standing.
+
+        Expected behavior:
+            - The record stays acknowledged.
+            - It keeps the response code that acknowledged it.
+        """
+        acknowledged, rejected = self.load_delivery(), self.load_delivery()
+
+        _record_mt_delivery(acknowledged, {"responseCode": 100, "responseMessage": "Success"})
+        _record_mt_delivery(rejected, {"responseCode": 110, "responseMessage": "Registration not found"})
+
+        delivery = self.reload_delivery()
+        self.assertTrue(delivery.acknowledged)
+        self.assertIsNotNone(delivery.acknowledged_at)
+        self.assertEqual(delivery.last_response_code, "100")
+
+    def test_an_acknowledged_result_cannot_be_claimed_by_a_retry(self):
+        """Test that a Celery retry stops once a parallel copy has been acknowledged.
+
+        Expected behavior:
+            - The claim fails although retries skip the due check.
+        """
+        delivery = self.load_delivery()
+        MTTrainingStageDelivery.objects.filter(pk=delivery.pk).update(  # pylint: disable=no-member
+            acknowledged=True,
+        )
+
+        self.assertFalse(_claim_mt_delivery(delivery, is_retry=True))
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_interleaved_sends_deliver_once_and_stay_acknowledged(self, api_mock):
+        """Test two sends of one result where the second starts while the first waits on the API.
+
+        Expected behavior:
+            - The API is called once: the second send finds the result claimed.
+            - The record ends acknowledged with one attempt.
+        """
+        def send_while_waiting(**kwargs):  # pylint: disable=unused-argument
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+            return {"responseCode": 100, "responseMessage": "Success"}
+
+        api_mock.return_value.update_training_stage.side_effect = send_while_waiting
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
+        )
+
+        api_mock.return_value.update_training_stage.assert_called_once()
+        delivery = self.reload_delivery()
+        self.assertTrue(delivery.acknowledged)
+        self.assertEqual(delivery.attempts, 1)
+
+    @patch("eox_nelp.signals.tasks.current_task")
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_a_rejection_after_a_parallel_acknowledgement_is_not_retried(self, api_mock, current_task_mock):
+        """Test that a 110 answered to a copy whose twin was just acknowledged does not raise.
+
+        The 110 is the partner refusing the duplicate, so retrying it would only send
+        the duplicate again and keep the result in the reconciliation backlog.
+
+        Expected behavior:
+            - No MTTrainingStageError is raised and the response is logged at INFO.
+            - The record stays acknowledged.
+        """
+        current_task_mock.request.retries = 1
+        delivery = self.load_delivery()
+
+        def acknowledged_meanwhile(**kwargs):  # pylint: disable=unused-argument
+            _record_mt_delivery(delivery, {"responseCode": 100, "responseMessage": "Success"})
+
+            return {"responseCode": 110, "responseMessage": "Registration not found"}
+
+        api_mock.return_value.update_training_stage.side_effect = acknowledged_meanwhile
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["INFO"])
+        self.assertTrue(self.reload_delivery().acknowledged)
+
+
+@ddt
+class MtDeliveryDueFilterTestCase(TestCase):
+    """Test the retry schedule: hourly while young, then daily."""
+
+    def tearDown(self):
+        """Drop the delivery records after every test to keep standard conditions"""
+        MTTrainingStageDelivery.objects.all().delete()  # pylint: disable=no-member
+
+    @data(
+        (timedelta(0), timedelta(0), 0, True),
+        (timedelta(hours=2), timedelta(minutes=30), 1, False),
+        (timedelta(hours=2), timedelta(minutes=50), 1, False),
+        (timedelta(hours=2), timedelta(minutes=56), 1, True),
+        (timedelta(hours=11), timedelta(hours=1), 8, True),
+        (timedelta(hours=13), timedelta(hours=2), 9, False),
+        (timedelta(days=2), timedelta(hours=20), 11, False),
+        (timedelta(days=2), timedelta(hours=23, minutes=56), 11, True),
+        (timedelta(days=29), timedelta(days=1), 40, True),
+        (timedelta(days=31), timedelta(hours=2), 41, False),
+        (timedelta(days=31), timedelta(days=2), 41, True),
+        (timedelta(days=31), timedelta(0), 0, True),
+    )
+    @unpack
+    def test_due(self, age, since_last_send, attempts, expected):
+        """Test whether a result is due given its age, its last send and its attempts.
+
+        Expected behavior:
+            - A result never sent is due at any age.
+            - Under 12 hours old it is due an hour after its last send, give or take the slack.
+            - From 12 hours old it is due a day after its last send, past the tail too, so a
+              manual replay still goes out (the reconciliation stops at the tail on its own).
+        """
+        now = timezone.now()
+        delivery = MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
+            national_id="1245789652",
+            course_id="course-v1:test+Cx105+2022_T4",
+            stage_result=1,
+            attempts=attempts,
+        )
+        MTTrainingStageDelivery.objects.filter(pk=delivery.pk).update(  # pylint: disable=no-member
+            created_at=now - age,
+            updated_at=now - since_last_send,
+        )
+
+        due = MTTrainingStageDelivery.objects.filter(  # pylint: disable=no-member
+            _mt_delivery_due_filter(now),
+            pk=delivery.pk,
+        ).exists()
+
+        self.assertEqual(due, expected)
+
+
 @ddt
 class CourseCompletionMtUpdaterTestCase(TestCase):
     """Test class for course_completion_mt_updater function."""
@@ -1073,7 +1268,7 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         """Drop the delivery records after every test to keep standard conditions"""
         MTTrainingStageDelivery.objects.all().delete()  # pylint: disable=no-member
 
-    def build_delivery(self, national_id, attempts, acknowledged=False, hours_ago=12):
+    def build_delivery(self, national_id, attempts, acknowledged=False, hours_ago=2, days_old=0):
         """Create a delivery record whose updated_at is far enough in the past to be due."""
         delivery = MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
             national_id=national_id,
@@ -1084,6 +1279,7 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         )
         # updated_at is auto_now, so it has to be rewritten to age the row.
         MTTrainingStageDelivery.objects.filter(pk=delivery.pk).update(  # pylint: disable=no-member
+            created_at=timezone.now() - timedelta(days=days_old, hours=hours_ago),
             updated_at=timezone.now() - timedelta(hours=hours_ago),
         )
 
@@ -1128,8 +1324,8 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         task_mock.delay.assert_called_once()
 
     @patch("eox_nelp.signals.tasks.update_mt_training_stage")
-    def test_exhausted_results_are_abandoned_not_actionable(self, task_mock):
-        """Test that a result which ran out of attempts stops counting as outstanding.
+    def test_results_past_the_tail_are_abandoned_not_actionable(self, task_mock):
+        """Test that a result older than the retry tail stops counting as outstanding.
 
         Nothing will be done about it again, so counting it alongside the retryable
         ones produces a backlog that can only rise.
@@ -1139,7 +1335,7 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
             - The run logs at INFO, since nothing is still owed.
             - It is not re-sent.
         """
-        self.build_delivery(self.national_id, attempts=tasks.MT_RECONCILE_MAX_ATTEMPTS)
+        self.build_delivery(self.national_id, attempts=40, days_old=tasks.MT_RETRY_TAIL.days)
 
         with self.assertLogs(tasks.__name__, level="INFO") as logs:
             result = reconcile_mt_training_stages()
@@ -1147,6 +1343,42 @@ class ReconcileMtTrainingStagesTestCase(TestCase):
         self.assertEqual([r.split(":")[0] for r in logs.output], ["INFO"])
         self.assertEqual(result["actionable"], 0)
         self.assertEqual(result["abandoned"], 1)
+        task_mock.delay.assert_not_called()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_results_inside_the_tail_are_resent_however_many_attempts(self, task_mock):
+        """Test that the attempt count no longer abandons a result.
+
+        A registration the partner creates days after the pass event is only
+        delivered if the result is still being retried then.
+
+        Expected behavior:
+            - A 20-day-old result with 30 attempts, last sent a day ago, is re-sent.
+        """
+        self.build_delivery(self.national_id, attempts=30, hours_ago=24, days_old=20)
+
+        result = reconcile_mt_training_stages()
+
+        self.assertEqual(result["resent"], 1)
+        self.assertEqual(result["actionable"], 1)
+        task_mock.delay.assert_called_once()
+
+    @patch("eox_nelp.signals.tasks.update_mt_training_stage")
+    def test_results_not_yet_due_are_outstanding_but_not_resent(self, task_mock):
+        """Test that a daily-phase result sent two hours ago waits for its next day.
+
+        Expected behavior:
+            - It is counted as actionable, so the run logs at ERROR.
+            - It is not re-sent.
+        """
+        self.build_delivery(self.national_id, attempts=12, hours_ago=2, days_old=3)
+
+        with self.assertLogs(tasks.__name__, level="INFO") as logs:
+            result = reconcile_mt_training_stages()
+
+        self.assertEqual([r.split(":")[0] for r in logs.output], ["ERROR"])
+        self.assertEqual(result["resent"], 0)
+        self.assertEqual(result["actionable"], 1)
         task_mock.delay.assert_not_called()
 
     @patch("eox_nelp.signals.tasks.update_mt_training_stage")

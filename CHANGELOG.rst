@@ -17,6 +17,13 @@ Added
 * ``eox_nelp.mail.backends.PooledSMTPEmailBackend``: an SMTP email backend that keeps one authenticated
   session open per process and thread, instead of reconnecting for every message.
 
+Fixed
+~~~~~
+* MT training stage delivery: parallel sends of the same result no longer all reach the partner (an atomic
+  claim lets one through), and a late rejection no longer resets an acknowledged result to unacknowledged.
+* MT reconciliation retries an unacknowledged result hourly for 12 hours, then daily up to 30 days, instead
+  of giving up after 10 attempts.
+
 [1.0.0] - 2022-10-18
 ---------------------
 
