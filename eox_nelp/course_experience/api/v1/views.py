@@ -36,6 +36,7 @@ from rest_framework_json_api.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework_json_api.schemas.openapi import AutoSchema
 from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
 
+from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
     LikeDislikeCourse,
@@ -931,7 +932,7 @@ class PublicBaseJsonAPIView(ReadOnlyModelViewSet):
             raise ValidationError(INVALID_KEY_ERROR) from exc
 
 
-class PublicFeedbackCourseExperienceView(PublicBaseJsonAPIView, FeedbackCourseExperienceView):
+class PublicFeedbackCourseExperienceView(CallerAuditMixin, PublicBaseJsonAPIView, FeedbackCourseExperienceView):
     """View to Public the FeedbackCourseExperienceView.
     Ancestors:
         PublicBaseJsonAPIView : Base for json api view configuration
@@ -1051,4 +1052,5 @@ class PublicFeedbackCourseExperienceView(PublicBaseJsonAPIView, FeedbackCourseEx
         }
     ```
     """
+    audit_surface = "experience.v1.feedback_public"
     filterset_class = FeedbackCourseFieldsFilter

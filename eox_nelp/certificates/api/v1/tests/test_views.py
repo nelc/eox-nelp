@@ -231,3 +231,46 @@ class UserCertificateListViewTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @override_settings(SITE_NAME="test.openedx.io", LMS_ROOT_URL="http://test.openedx.io/")
+    def test_get_certificates_logs_caller_audit_without_national_id(self):
+        """
+        Test that a national ID lookup is audited by type and target, never by value.
+
+        Expected behavior:
+            - Status code 200.
+            - The audit line names the surface, the caller, the lookup type and the target user id.
+            - The national ID is not in the audit line.
+        """
+        self.client.force_authenticate(user=self.staff_user)
+        configuration_helpers.get_value_for_org.side_effect = [settings.SITE_NAME, settings.LMS_ROOT_URL]
+
+        with patch.object(User, "profile", set_key_values({"name": ENGLISH_NAME}), create=True):
+            with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+                response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('"surface": "certificates.v1.users"', logs.output[0])
+        self.assertIn(f'"user_id": {self.staff_user.id}', logs.output[0])
+        self.assertIn('"lookup_type": "national_id"', logs.output[0])
+        self.assertIn(f'"target_user_id": {self.student.id}', logs.output[0])
+        self.assertIn("(?P<national_id>", logs.output[0])
+        self.assertNotIn(NATIONAL_ID, logs.output[0])
+
+    def test_get_certificates_forbidden_logs_caller_audit(self):
+        """
+        Test that a refused caller is audited too.
+
+        Expected behavior:
+            - Status code 403.
+            - The audit line carries the 403 status and the caller, and no target user id.
+        """
+        self.client.force_authenticate(user=self.regular_user)
+
+        with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('"status": 403', logs.output[0])
+        self.assertIn(f'"user_id": {self.regular_user.id}', logs.output[0])
+        self.assertNotIn("target_user_id", logs.output[0])

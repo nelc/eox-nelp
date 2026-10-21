@@ -8,16 +8,21 @@ from eox_core.api.v1.views import EdxappUser as CoreEdxappUser
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.users.api.v1.serializers import NelpUserReadOnlySerializer
 
 User = get_user_model()
 
 
-class NelpEdxappUser(CoreEdxappUser):
+class NelpEdxappUser(CallerAuditMixin, CoreEdxappUser):
     """
     Handles the users' actions for the API-V1.
     This class inherits all functionality from eox-core's EdxappUser view.
     """
+    audit_surface = "users.v1.user"
+    # Audit names of the user_query keys built by get_user_query; the lookup value itself is never logged.
+    AUDIT_LOOKUP_TYPES = {"username": "username", "email": "email", "extrainfo__national_id": "national_id"}
+
     def get(self, request, *args, **kwargs):
         """
         Retrieves information about an edxapp user,
@@ -76,7 +81,9 @@ class NelpEdxappUser(CoreEdxappUser):
         - 404: User not found
         """
         user_query = self.get_user_query(request)
+        self.audit_extra["lookup_type"] = self.AUDIT_LOOKUP_TYPES.get(next(iter(user_query)))
         user = get_object_or_404(User, **user_query)
+        self.audit_extra["target_user_id"] = user.id
         admin_fields = getattr(settings, "ACCOUNT_VISIBILITY_CONFIGURATION", {}).get(
             "admin_fields", {},
         )

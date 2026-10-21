@@ -146,3 +146,39 @@ class NelpEdxappUserTestCase(APITestCase):
         response = self.client.get(f"{self.url}?username=nonexistent")
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch('eox_nelp.users.api.v1.views.NelpUserReadOnlySerializer')
+    def test_get_logs_caller_audit_without_lookup_value(self, mock_serializer_class):
+        """Test that a national_id lookup is audited by type and target, never by value.
+
+        Expected behavior:
+            - Returns 200 status code
+            - The audit line names the surface, the lookup type and the target user id
+            - The national_id value is not in the audit line
+        """
+        mock_serializer_class.return_value.data = {}
+
+        with self.assertLogs('eox_nelp.audit', level='INFO') as logs:
+            response = self.client.get(f"{self.url}?national_id={self.test_user.extrainfo.national_id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('"surface": "users.v1.user"', logs.output[0])
+        self.assertIn('"lookup_type": "national_id"', logs.output[0])
+        self.assertIn(f'"target_user_id": {self.test_user.id}', logs.output[0])
+        self.assertNotIn(self.test_user.extrainfo.national_id, logs.output[0])
+
+    def test_get_not_found_logs_caller_audit_without_target(self):
+        """Test that a lookup that finds no user is audited with its status and no target.
+
+        Expected behavior:
+            - Returns 404 status code
+            - The audit line carries the 404 status and the lookup type, and no target user id
+        """
+        with self.assertLogs('eox_nelp.audit', level='INFO') as logs:
+            response = self.client.get(f"{self.url}?username=nonexistent")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('"status": 404', logs.output[0])
+        self.assertIn('"lookup_type": "username"', logs.output[0])
+        self.assertNotIn('target_user_id', logs.output[0])
+        self.assertNotIn('nonexistent', logs.output[0])

@@ -9,12 +9,13 @@ from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.stats import metrics
 
 User = get_user_model()
 
 
-class GeneralTenantStatsView(APIView):
+class GeneralTenantStatsView(CallerAuditMixin, APIView):
     """Class view. Handle general tenant stats.
 
     ## Usage
@@ -49,6 +50,8 @@ class GeneralTenantStatsView(APIView):
     ```
     """
 
+    audit_surface = "stats.v1.tenant"
+
     def get(self, request):
         """Return general tenant stats."""
         tenant = request.site.domain
@@ -73,7 +76,7 @@ class GeneralTenantStatsView(APIView):
         })
 
 
-class GeneralCourseStatsView(APIView):
+class GeneralCourseStatsView(CallerAuditMixin, APIView):
     """Class view that returns a list of course stats or a specific course stats.
 
     ## Usage
@@ -170,6 +173,8 @@ class GeneralCourseStatsView(APIView):
     }
     ```
     """
+
+    audit_surface = "stats.v1.courses"
 
     def get(self, request, course_id=None):
         """Return general course stats."""

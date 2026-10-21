@@ -13,13 +13,14 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.certificates.api.v1.serializers import CertificateSerializer
 
 GeneratedCertificate = get_generated_certificate()
 User = get_user_model()
 
 
-class UserCertificateListView(APIView):
+class UserCertificateListView(CallerAuditMixin, APIView):
     """
     API view for retrieving certificates by national ID or by certificate ID.
 
@@ -65,6 +66,7 @@ class UserCertificateListView(APIView):
     """
     authentication_classes = [JwtAuthentication, SessionAuthenticationAllowInactiveUser]
     permission_classes = [IsAuthenticated, IsAdminUser]
+    audit_surface = "certificates.v1.users"
 
     def get(self, request, *args, national_id=None, certificate_id=None, **kwargs):  # pylint: disable=unused-argument
         """
@@ -81,6 +83,8 @@ class UserCertificateListView(APIView):
             Response: A DRF Response object with the owner's details and their certificates and
                       HTTP 200 status, or HTTP 404 status if the lookup key matches no record.
         """
+        self.audit_extra["lookup_type"] = "certificate_id" if certificate_id else "national_id"
+
         if certificate_id:
             certificate = GeneratedCertificate.objects.filter(
                 verify_uuid=certificate_id,
@@ -105,6 +109,7 @@ class UserCertificateListView(APIView):
 
             certificates = GeneratedCertificate.objects.filter(user=user)
 
+        self.audit_extra["target_user_id"] = user.id
         serializer = CertificateSerializer(certificates, many=True, context={'request': request})
         extra_info = getattr(user, "extrainfo", None)
         profile = getattr(user, "profile", None)
