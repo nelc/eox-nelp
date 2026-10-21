@@ -6,9 +6,11 @@ from unittest.mock import patch
 from custom_reg_form.models import ExtraInfo
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from edx_toggles.toggles.testutils import override_waffle_switch
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
+from eox_nelp.access import ENFORCE_TENANT_SCOPED_LOOKUPS
 from eox_nelp.users.api.v1.views import CoreEdxappUser
 
 User = get_user_model()
@@ -182,3 +184,73 @@ class NelpEdxappUserTestCase(APITestCase):
         self.assertIn('"lookup_type": "username"', logs.output[0])
         self.assertNotIn('target_user_id', logs.output[0])
         self.assertNotIn('nonexistent', logs.output[0])
+
+    @patch('eox_nelp.users.api.v1.views.is_tenant_member', return_value=False)
+    @patch('eox_nelp.users.api.v1.views.NelpUserReadOnlySerializer')
+    def test_non_member_is_logged_while_switch_is_off(self, mock_serializer_class, _member_mock):
+        """Test a lookup of a user outside the tenant while the switch is off.
+
+        Expected behavior:
+            - Returns 200 status code (unchanged behaviour)
+            - The audit line records the would_deny verdict
+        """
+        mock_serializer_class.return_value.data = {}
+
+        with self.assertLogs('eox_nelp.audit', level='INFO') as logs:
+            response = self.client.get(f"{self.url}?username={self.test_user.username}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('"tenant_scope": "would_deny"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    @patch('eox_nelp.users.api.v1.views.is_tenant_member', return_value=False)
+    def test_non_member_is_not_found_when_enforced(self, _member_mock):
+        """Test a lookup of a user outside the tenant once the switch is on.
+
+        Expected behavior:
+            - Returns 404 status code, like an unknown user
+            - The audit line records the deny verdict
+        """
+        with self.assertLogs('eox_nelp.audit', level='INFO') as logs:
+            response = self.client.get(f"{self.url}?email={self.test_user.email}")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('"tenant_scope": "deny"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    @patch('eox_nelp.users.api.v1.views.is_tenant_member', return_value=True)
+    @patch('eox_nelp.users.api.v1.views.NelpUserReadOnlySerializer')
+    def test_member_is_served_when_enforced(self, mock_serializer_class, member_mock):
+        """Test a lookup of a tenant member once the switch is on.
+
+        Expected behavior:
+            - Returns 200 status code
+            - Membership is checked for the found user
+        """
+        mock_serializer_class.return_value.data = {}
+
+        response = self.client.get(f"{self.url}?username={self.test_user.username}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(member_mock.call_args.args[0], self.test_user)
+
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    @patch('eox_nelp.users.api.v1.views.has_global_lookup', return_value=True)
+    @patch('eox_nelp.users.api.v1.views.is_tenant_member')
+    @patch('eox_nelp.users.api.v1.views.NelpUserReadOnlySerializer')
+    def test_global_lookup_skips_the_tenant_check(self, mock_serializer_class, member_mock, _global_mock):
+        """Test that a caller with global lookup is not scoped.
+
+        Expected behavior:
+            - Returns 200 status code
+            - Membership is never checked
+            - The audit line records the global scope
+        """
+        mock_serializer_class.return_value.data = {}
+
+        with self.assertLogs('eox_nelp.audit', level='INFO') as logs:
+            response = self.client.get(f"{self.url}?username={self.test_user.username}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        member_mock.assert_not_called()
+        self.assertIn('"tenant_scope": "global"', logs.output[0])

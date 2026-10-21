@@ -3,11 +3,13 @@ Eox-nelp API v1 views to extend eox-core api v1 views.
 """
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from eox_core.api.v1.views import EdxappUser as CoreEdxappUser
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from eox_nelp.access import ENFORCE_TENANT_SCOPED_LOOKUPS, evaluate_rule, has_global_lookup, is_tenant_member
 from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.users.api.v1.serializers import NelpUserReadOnlySerializer
 
@@ -78,12 +80,22 @@ class NelpEdxappUser(CallerAuditMixin, CoreEdxappUser):
         - 200: Success, user found.
         - 400: Bad request, missing either email or username
         - 401: Unauthorized user to make the request.
-        - 404: User not found
+        - 404: User not found, or (once eox_nelp.enforce_tenant_scoped_lookups is on) the user is not a member of
+          the request tenant and the caller has no global lookup
         """
         user_query = self.get_user_query(request)
         self.audit_extra["lookup_type"] = self.AUDIT_LOOKUP_TYPES.get(next(iter(user_query)))
         user = get_object_or_404(User, **user_query)
         self.audit_extra["target_user_id"] = user.id
+        if has_global_lookup(request.user):
+            self.audit_extra["tenant_scope"] = "global"
+        elif evaluate_rule(
+            ENFORCE_TENANT_SCOPED_LOOKUPS,
+            "tenant_scope",
+            is_tenant_member(user, getattr(request, "site", None)),
+            self.audit_extra,
+        ):
+            raise Http404
         admin_fields = getattr(settings, "ACCOUNT_VISIBILITY_CONFIGURATION", {}).get(
             "admin_fields", {},
         )

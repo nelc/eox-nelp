@@ -6,8 +6,11 @@ Classes:
 from ddt import data, ddt
 from django.test import Client, TestCase
 from django.urls import reverse
+from edx_toggles.toggles.testutils import override_waffle_switch
+from mock import patch
 from rest_framework import status
 
+from eox_nelp.access import ENFORCE_STATS_STAFF_ONLY
 from eox_nelp.stats.views import STATS_QUERY_PARAMS
 
 
@@ -57,6 +60,35 @@ class GetTenantStatsTestCase(TestCase):
         self.assertIn('"surface": "stats.tenant_page"', logs.output[0])
         self.assertIn('"status": 200', logs.output[0])
         self.assertIn('"user_id": null', logs.output[0])
+        self.assertIn('"stats_staff_only": "would_deny"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_STATS_STAFF_ONLY, True)
+    def test_get_refused_to_non_staff_when_enforced(self):
+        """
+        Test that the stats page needs a tenant staff user once eox_nelp.enforce_stats_staff_only is on.
+
+        Expected behavior:
+            - Status code 403.
+            - The audit line records the deny verdict.
+        """
+        with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+            response = self.client.get(reverse("stats:tenant"))
+
+        self.assertEqual(status.HTTP_403_FORBIDDEN, response.status_code)
+        self.assertIn('"stats_staff_only": "deny"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_STATS_STAFF_ONLY, True)
+    @patch("eox_nelp.stats.views.is_tenant_staff", return_value=True)
+    def test_get_served_to_tenant_staff_when_enforced(self, _staff_mock):
+        """
+        Test that tenant staff still gets the stats page once the switch is on.
+
+        Expected behavior:
+            - Status code 200.
+        """
+        response = self.client.get(reverse("stats:tenant"))
+
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
 
     @data(*STATS_QUERY_PARAMS)
     def test_filter_stat_out(self, query_param):

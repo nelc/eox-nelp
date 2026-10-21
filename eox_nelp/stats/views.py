@@ -5,6 +5,9 @@ Contains all the views for stats
 classes:
     get_tenant_stats: function based view.
 """
+from django.core.exceptions import PermissionDenied
+
+from eox_nelp.access import ENFORCE_STATS_STAFF_ONLY, evaluate_rule, is_tenant_staff
 from eox_nelp.audit import log_api_caller
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
 
@@ -50,12 +53,18 @@ def get_tenant_stats(request):
     # when its flag is exactly "true", the default) while keeping attacker-controlled
     # query values out of the rendered page: the context can never hold a reflected
     # string, so the flags can no longer be used as a reflected-XSS sink.
+    audit_extra = {}
+    allowed = is_tenant_staff(getattr(request, "user", None))
+    if evaluate_rule(ENFORCE_STATS_STAFF_ONLY, "stats_staff_only", allowed, audit_extra):
+        log_api_caller(request, "stats.tenant_page", status=403, **audit_extra)
+        raise PermissionDenied
+
     context = {
         query_param: "true" if request.GET.get(query_param, "true") == "true" else "false"
         for query_param in STATS_QUERY_PARAMS
     }
 
     response = edxmako.shortcuts.render_to_response("tenant_stats/index.html", context, "main", request)
-    log_api_caller(request, "stats.tenant_page", status=response.status_code)
+    log_api_caller(request, "stats.tenant_page", status=response.status_code, **audit_extra)
 
     return response

@@ -9,6 +9,7 @@ from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from eox_nelp.access import TenantStaffOrLogOnly
 from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.stats import metrics
 
@@ -51,6 +52,8 @@ class GeneralTenantStatsView(CallerAuditMixin, APIView):
     """
 
     audit_surface = "stats.v1.tenant"
+    # The project defaults stay first; the tenant-staff rule only logs until eox_nelp.enforce_stats_staff_only is on.
+    permission_classes = [*APIView.permission_classes, TenantStaffOrLogOnly]
 
     def get(self, request):
         """Return general tenant stats."""
@@ -175,6 +178,7 @@ class GeneralCourseStatsView(CallerAuditMixin, APIView):
     """
 
     audit_surface = "stats.v1.courses"
+    permission_classes = [*APIView.permission_classes, TenantStaffOrLogOnly]
 
     def get(self, request, course_id=None):
         """Return general course stats."""

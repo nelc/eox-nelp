@@ -13,6 +13,13 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from eox_nelp.access import (
+    ENFORCE_TENANT_SCOPED_LOOKUPS,
+    evaluate_rule,
+    get_tenant_orgs,
+    has_global_lookup,
+    is_tenant_member,
+)
 from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.certificates.api.v1.serializers import CertificateSerializer
 
@@ -39,6 +46,12 @@ class UserCertificateListView(CallerAuditMixin, APIView):
     **Authentication**
         Requires JWT token or session authentication.
         User must have staff or superadmin privileges.
+
+    **Tenant scope**
+        Once the waffle switch eox_nelp.enforce_tenant_scoped_lookups is on, a caller without global lookup
+        (superuser or member of the eox_nelp_global_lookup group) only gets people who belong to the request tenant
+        and certificates of the tenant's orgs; anything else answers as not found. While the switch is off the
+        verdict is only logged.
 
     **Response Values**
         Returns user information and a list of their certificates including:
@@ -110,6 +123,16 @@ class UserCertificateListView(CallerAuditMixin, APIView):
             certificates = GeneratedCertificate.objects.filter(user=user)
 
         self.audit_extra["target_user_id"] = user.id
+        certificates = self.scope_to_tenant(request, user, certificates, by_certificate_id=bool(certificate_id))
+
+        if certificates is None:
+            # Out of the tenant: answer exactly like a lookup that matched nothing.
+            error = (
+                "Certificate with the provided certificate ID was not found." if certificate_id
+                else "User with the provided national ID was not found."
+            )
+            return Response({"error": error}, status=status.HTTP_404_NOT_FOUND)
+
         serializer = CertificateSerializer(certificates, many=True, context={'request': request})
         extra_info = getattr(user, "extrainfo", None)
         profile = getattr(user, "profile", None)
@@ -123,3 +146,27 @@ class UserCertificateListView(CallerAuditMixin, APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+    def scope_to_tenant(self, request, user, certificates, by_certificate_id):
+        """
+        Apply the tenant-scope rule (eox_nelp.enforce_tenant_scoped_lookups) and record its verdict for the audit line.
+
+        By certificate ID the certificate itself must belong to an org of the tenant; by national ID the person must
+        be a member of the tenant, and only the certificates of the tenant's orgs are returned.
+
+        Returns:
+            The certificates to serialize, or None when the lookup must answer as not found.
+        """
+        if has_global_lookup(request.user):
+            self.audit_extra["tenant_scope"] = "global"
+            return certificates
+
+        tenant_orgs = get_tenant_orgs()
+        in_tenant = [certificate for certificate in certificates if certificate.course_id.org.lower() in tenant_orgs]
+        self.audit_extra["certificates_outside_tenant"] = len(certificates) - len(in_tenant)
+        allowed = bool(in_tenant) if by_certificate_id else is_tenant_member(user, getattr(request, "site", None))
+
+        if evaluate_rule(ENFORCE_TENANT_SCOPED_LOOKUPS, "tenant_scope", allowed, self.audit_extra):
+            return None
+
+        return in_tenant if ENFORCE_TENANT_SCOPED_LOOKUPS.is_enabled() else certificates

@@ -8,10 +8,13 @@ from ddt import data, ddt
 from django.contrib.sites.models import Site
 from django.test import override_settings
 from django.urls import reverse
+from edx_toggles.toggles.testutils import override_waffle_switch
 from mock import Mock, patch
 from opaque_keys.edx.keys import CourseKey
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from eox_nelp.access import ENFORCE_STATS_STAFF_ONLY
 
 
 @ddt
@@ -153,6 +156,22 @@ class GeneralTenantStatsViewTestCase(APITestCase):
         response = request(url_endpoint)
 
         self.assertEqual(status.HTTP_405_METHOD_NOT_ALLOWED, response.status_code)
+
+    @override_settings(MIDDLEWARE=["eox_tenant.middleware.CurrentSiteMiddleware"])
+    @override_waffle_switch(ENFORCE_STATS_STAFF_ONLY, True)
+    @patch("eox_nelp.stats.api.v1.views.metrics")
+    def test_refused_to_anonymous_when_enforced(self, mock_metrics):
+        """
+        Test that the tenant stats API needs a tenant staff user once eox_nelp.enforce_stats_staff_only is on.
+
+        Expected behavior:
+            - Status code 401 or 403 for an anonymous caller.
+            - The metrics are never computed.
+        """
+        response = self.client.get(reverse("stats-api:v1:general-stats"))
+
+        self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        mock_metrics.get_courses_metrics.assert_not_called()
 
 
 @ddt

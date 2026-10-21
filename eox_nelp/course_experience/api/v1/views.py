@@ -36,6 +36,7 @@ from rest_framework_json_api.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework_json_api.schemas.openapi import AutoSchema
 from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
 
+from eox_nelp.access import TenantStaffOrLogOnly
 from eox_nelp.audit import CallerAuditMixin
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
@@ -1053,4 +1054,6 @@ class PublicFeedbackCourseExperienceView(CallerAuditMixin, PublicBaseJsonAPIView
     ```
     """
     audit_surface = "experience.v1.feedback_public"
+    # Tenant staff only once eox_nelp.enforce_stats_staff_only is on; until then the verdict is only logged.
+    permission_classes = (TenantStaffOrLogOnly,)
     filterset_class = FeedbackCourseFieldsFilter
