@@ -2,10 +2,14 @@
 Classes:
     LikeDislikeUnitExperienceTestCase: Test LikeDislikeUnitExperienceView.
 """
+from unittest.mock import patch
+
 from django.urls import reverse
+from edx_toggles.toggles.testutils import override_waffle_switch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from eox_nelp.access import ENFORCE_STATS_STAFF_ONLY
 from eox_nelp.course_experience.models import (
     FeedbackCourse,
     LikeDislikeCourse,
@@ -283,6 +287,11 @@ class FeedbackPublicCourseExperienceTestCase(FeedbackPublicExperienceTestMixin, 
         Using self(FeedbackCourseExperienceTestCase).
         """
         super().setUp()
+        # The tenant-staff rule (eox_nelp.access) is tested on its own; here it reports "not tenant staff", which
+        # only logs while eox_nelp.enforce_stats_staff_only is off.
+        tenant_staff_patcher = patch("eox_nelp.access.is_tenant_staff", return_value=False)
+        tenant_staff_patcher.start()
+        self.addCleanup(tenant_staff_patcher.stop)
         self.my_course_feedbacks = FeedbackCourse.objects.bulk_create(  # pylint: disable=no-member
             [
                 FeedbackCourse(
@@ -300,3 +309,17 @@ class FeedbackPublicCourseExperienceTestCase(FeedbackPublicExperienceTestMixin, 
         )
 
         self.object_url_kwarg = {self.object_key: BASE_COURSE_ID}
+
+    @override_waffle_switch(ENFORCE_STATS_STAFF_ONLY, True)
+    def test_get_list_refused_to_non_staff_when_enforced(self):
+        """
+        Test that the public feedback list needs a tenant staff user once eox_nelp.enforce_stats_staff_only is on.
+
+        Expected behavior:
+            - Status code 403 for a logged-in non-staff user.
+        """
+        self.client.force_authenticate(user=self.users[1])  # a normal user, as in test_get_list_normal_user
+
+        response = self.client.get(reverse(self.reverse_viewname_list))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

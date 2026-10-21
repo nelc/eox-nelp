@@ -8,12 +8,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
+from edx_toggles.toggles.testutils import override_waffle_switch
 from eox_core.edxapp_wrapper.certificates import get_generated_certificate
 from mock import patch
 from opaque_keys.edx.keys import CourseKey
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from eox_nelp.access import ENFORCE_TENANT_SCOPED_LOOKUPS
 from eox_nelp.edxapp_wrapper.certificates import api as certificates_api
 from eox_nelp.edxapp_wrapper.certificates import utils as certificates_utils
 from eox_nelp.edxapp_wrapper.course_overviews import CourseOverview, get_course_overviews
@@ -80,6 +82,13 @@ class UserCertificateListViewTests(APITestCase):
         certificates_api.display_date_for_certificate.return_value = ISSUE_DATE
         certificates_utils.get_certificate_url.return_value = f"/certificates/{CERTIFICATE_ID}"
         get_course_overviews.return_value = [{"display_name": "TestingCourse"}]
+        # Tenant scope: by default the request tenant owns org "test" and the student is a member of it.
+        tenant_orgs_patcher = patch("eox_nelp.certificates.api.v1.views.get_tenant_orgs", return_value={"test"})
+        member_patcher = patch("eox_nelp.certificates.api.v1.views.is_tenant_member", return_value=True)
+        self.tenant_orgs_mock = tenant_orgs_patcher.start()
+        self.member_mock = member_patcher.start()
+        self.addCleanup(tenant_orgs_patcher.stop)
+        self.addCleanup(member_patcher.stop)
 
     @staticmethod
     def expected_certificate_data():
@@ -231,3 +240,149 @@ class UserCertificateListViewTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @override_settings(SITE_NAME="test.openedx.io", LMS_ROOT_URL="http://test.openedx.io/")
+    def test_get_certificates_logs_caller_audit_without_national_id(self):
+        """
+        Test that a national ID lookup is audited by type and target, never by value.
+
+        Expected behavior:
+            - Status code 200.
+            - The audit line names the surface, the caller, the lookup type and the target user id.
+            - The national ID is not in the audit line.
+        """
+        self.client.force_authenticate(user=self.staff_user)
+        configuration_helpers.get_value_for_org.side_effect = [settings.SITE_NAME, settings.LMS_ROOT_URL]
+
+        with patch.object(User, "profile", set_key_values({"name": ENGLISH_NAME}), create=True):
+            with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+                response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('"surface": "certificates.v1.users"', logs.output[0])
+        self.assertIn(f'"user_id": {self.staff_user.id}', logs.output[0])
+        self.assertIn('"lookup_type": "national_id"', logs.output[0])
+        self.assertIn(f'"target_user_id": {self.student.id}', logs.output[0])
+        self.assertIn("(?P<national_id>", logs.output[0])
+        self.assertNotIn(NATIONAL_ID, logs.output[0])
+
+    def test_get_certificates_forbidden_logs_caller_audit(self):
+        """
+        Test that a refused caller is audited too.
+
+        Expected behavior:
+            - Status code 403.
+            - The audit line carries the 403 status and the caller, and no target user id.
+        """
+        self.client.force_authenticate(user=self.regular_user)
+
+        with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('"status": 403', logs.output[0])
+        self.assertIn(f'"user_id": {self.regular_user.id}', logs.output[0])
+        self.assertNotIn("target_user_id", logs.output[0])
+
+    @override_settings(SITE_NAME="test.openedx.io", LMS_ROOT_URL="http://test.openedx.io/")
+    def test_non_member_is_logged_while_switch_is_off(self):
+        """
+        Test a national ID lookup of a person outside the tenant while the switch is off.
+
+        Expected behavior:
+            - Status code 200 (unchanged behaviour).
+            - The audit line records the would_deny verdict.
+        """
+        self.member_mock.return_value = False
+        self.client.force_authenticate(user=self.staff_user)
+        configuration_helpers.get_value_for_org.side_effect = [settings.SITE_NAME, settings.LMS_ROOT_URL]
+
+        with patch.object(User, "profile", set_key_values({"name": ENGLISH_NAME}), create=True):
+            with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+                response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('"tenant_scope": "would_deny"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    def test_non_member_is_not_found_when_enforced(self):
+        """
+        Test a national ID lookup of a person outside the tenant once the switch is on.
+
+        Expected behavior:
+            - Status code 404 with the same body as an unknown national ID.
+            - The audit line records the deny verdict.
+        """
+        self.member_mock.return_value = False
+        self.client.force_authenticate(user=self.staff_user)
+
+        with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["error"], "User with the provided national ID was not found.")
+        self.assertIn('"tenant_scope": "deny"', logs.output[0])
+
+    @override_settings(SITE_NAME="test.openedx.io", LMS_ROOT_URL="http://test.openedx.io/")
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    def test_member_gets_only_tenant_certificates_when_enforced(self):
+        """
+        Test that a member's certificates of other tenants' orgs are dropped once the switch is on.
+
+        Expected behavior:
+            - Status code 200.
+            - No certificate is returned when the tenant does not own the certificate's org.
+            - The audit line counts the dropped certificate.
+        """
+        self.tenant_orgs_mock.return_value = {"another-org"}
+        self.client.force_authenticate(user=self.staff_user)
+
+        with patch.object(User, "profile", set_key_values({"name": ENGLISH_NAME}), create=True):
+            with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+                response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["certificates"], [])
+        self.assertIn('"certificates_outside_tenant": 1', logs.output[0])
+        self.assertIn('"tenant_scope": "allow"', logs.output[0])
+
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    def test_certificate_of_another_tenant_is_not_found_when_enforced(self):
+        """
+        Test a certificate ID lookup of a certificate of another tenant's org once the switch is on.
+
+        Expected behavior:
+            - Status code 404 with the same body as an unknown certificate ID.
+        """
+        self.tenant_orgs_mock.return_value = {"another-org"}
+        self.client.force_authenticate(user=self.staff_user)
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["error"], "Certificate with the provided certificate ID was not found.")
+
+    @override_settings(SITE_NAME="test.openedx.io", LMS_ROOT_URL="http://test.openedx.io/")
+    @override_waffle_switch(ENFORCE_TENANT_SCOPED_LOOKUPS, True)
+    def test_superuser_keeps_global_lookup(self):
+        """
+        Test that a superuser still gets every certificate of a person outside the tenant.
+
+        Expected behavior:
+            - Status code 200 with the certificate.
+            - The audit line records the global scope.
+        """
+        self.member_mock.return_value = False
+        self.tenant_orgs_mock.return_value = {"another-org"}
+        self.staff_user.is_superuser = True
+        self.staff_user.save()
+        self.client.force_authenticate(user=self.staff_user)
+        configuration_helpers.get_value_for_org.side_effect = [settings.SITE_NAME, settings.LMS_ROOT_URL]
+
+        with patch.object(User, "profile", set_key_values({"name": ENGLISH_NAME}), create=True):
+            with self.assertLogs("eox_nelp.audit", level="INFO") as logs:
+                response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["certificates"], [self.expected_certificate_data()])
+        self.assertIn('"tenant_scope": "global"', logs.output[0])

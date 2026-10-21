@@ -6,9 +6,44 @@ Required NELP middlewares that allow customizing edx-platform.
 import base64
 import hashlib
 import hmac
+import re
 import time
 
 from django.conf import settings
+from django.http import HttpResponseNotFound
+
+
+class ApiDocsAccessMiddleware:
+    """
+    Middleware that hides the platform API documentation (Swagger/OpenAPI) from everyone but superusers.
+
+    The docs routes are registered unconditionally by edx-platform (`make_docs_urls` in the LMS and CMS),
+    eox-core (`/eox-core/api-docs/`) and Studio's drf-spectacular views, so they are answered with a plain
+    404 here instead of patching each urls.py. A 404 (not 403) avoids confirming that the route exists.
+    """
+
+    DOCS_PATH_REGEX = re.compile(
+        r"^/(?:swagger(?:\.json|\.yaml|/)|(?:eox-core/)?api-docs/|authoring-api/(?:ui|schema)/)",
+        re.IGNORECASE,
+    )
+
+    def __init__(self, get_response):
+        """
+        Initialize middleware with Django's response handler.
+        """
+        self.get_response = get_response
+
+    def __call__(self, request):
+        """
+        Answer the docs routes with a 404 unless the user is a superuser; let every other request through.
+        """
+        if self.DOCS_PATH_REGEX.match(request.path_info):
+            user = getattr(request, "user", None)
+
+            if not (user and user.is_superuser):
+                return HttpResponseNotFound()
+
+        return self.get_response(request)
 
 
 class GCPCloudCDNSignedCookieMiddleware:

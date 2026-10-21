@@ -167,6 +167,10 @@ if find_spec('eox_audit_model') and EOX_AUDIT_MODEL_APP not in INSTALLED_APPS:  
 if CUSTOM_REG_FORM_APP not in INSTALLED_APPS:  # noqa: F405
     INSTALLED_APPS.append(CUSTOM_REG_FORM_APP)  # noqa: F405
 
+# ------------waffle (the LMS installs it; eox_nelp.access reads waffle switches)------------------------------
+if 'waffle' not in INSTALLED_APPS:  # noqa: F405
+    INSTALLED_APPS.append('waffle')  # noqa: F405
+
 ALLOW_EOX_AUDIT_MODEL = False
 CELERY_TASK_ALWAYS_EAGER = True
 
