@@ -8,7 +8,7 @@ django-filter
 djangorestframework<3.18.0
 djangorestframework-jsonapi<8.1.0
 django-password-validators==1.7.3
-django-phonenumber-field[phonenumbers]
+django-phonenumber-field[phonenumbers]<9.0.0  # 9.0.0 (2026-10-21) requires Django>=5.2; Teak runs Django 4.2
 edx-django-utils
 edx-drf-extensions
 edx-i18n-tools
