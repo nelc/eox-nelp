@@ -101,8 +101,8 @@ class Command(BaseCommand):
         if current:
             return ALREADY if current == national_id else CONFLICT
 
-        taken = ExtraInfo.objects.filter(national_id=national_id).exclude(user=user).exists()  # pylint: disable=no-member
-        return TAKEN if taken else SET
+        holders = ExtraInfo.objects.filter(national_id=national_id)  # pylint: disable=no-member
+        return TAKEN if holders.exclude(user=user).exists() else SET
 
     def write(self, row):
         """Write one national_id; a unique-constraint race becomes `taken`, never a crash."""
