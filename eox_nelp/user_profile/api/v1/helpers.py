@@ -9,7 +9,6 @@ These utilities are intended to centralize user update logic, promote reusabilit
 and maintain clean separation between views and business logic.
 """
 from django.conf import settings
-from django.db.models import Q
 from django.utils.translation import gettext as _
 from opaque_keys.edx.django.models import CourseKeyField
 
@@ -105,9 +104,10 @@ def holds_institution_role(user):
     if not roles:
         return False
 
+    # Org-level roles store CourseKeyField.Empty; the field refuses None/__isnull lookups.
     return CourseAccessRole.objects.filter(
-        Q(course_id=CourseKeyField.Empty) | Q(course_id__isnull=True),
         user=user,
+        course_id=CourseKeyField.Empty,
         role__in=list(roles),
     ).exists()
 

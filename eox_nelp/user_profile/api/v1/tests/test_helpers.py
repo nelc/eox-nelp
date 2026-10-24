@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from opaque_keys.edx.django.models import CourseKeyField
 
 from eox_nelp.user_profile.api.v1.helpers import holds_institution_role
 
@@ -28,15 +29,18 @@ class HoldsInstitutionRoleTestCase(TestCase):
 
         Expected behavior:
             - Returns the result of the exists() query.
-            - The query filters by user and by the default locked roles.
+            - The query filters by user, by CourseKeyField.Empty (never None or __isnull, which
+              CourseKeyField refuses at query time) and by the default locked roles.
         """
         course_access_role_mock.objects.filter.return_value.exists.return_value = True
 
         self.assertTrue(holds_institution_role(self.user))
-        kwargs = course_access_role_mock.objects.filter.call_args.kwargs
-        self.assertEqual(kwargs["user"], self.user)
+        call = course_access_role_mock.objects.filter.call_args
+        self.assertEqual(call.args, ())
+        self.assertEqual(call.kwargs["user"], self.user)
+        self.assertIs(call.kwargs["course_id"], CourseKeyField.Empty)
         self.assertEqual(
-            sorted(kwargs["role__in"]),
+            sorted(call.kwargs["role__in"]),
             ["data_researcher", "instructor", "org_course_creator_group", "staff"],
         )
 
