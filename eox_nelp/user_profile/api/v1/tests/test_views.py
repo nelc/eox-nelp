@@ -9,6 +9,7 @@ Test Cases:
 
 from unittest.mock import patch
 
+from custom_reg_form.models import ExtraInfo
 from ddt import ddt
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -26,6 +27,19 @@ User = get_user_model()
 class UpdateUserDataTestCase(POSTAuthenticatedTestMixin, APITestCase):
     """Test case for update user data view."""
     reverse_viewname = "user-profile-api:v1:update-user-data"
+
+    def setUp(self):
+        """Default every user to holding no institution role; lock tests switch it on."""
+        super().setUp()
+        patcher = patch("eox_nelp.user_profile.api.v1.helpers.holds_institution_role", return_value=False)
+        self.holds_role_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def create_extra_info(self, national_id):
+        """Give the user a complete ExtraInfo, so ExtraInfoForm validates on later updates."""
+        return ExtraInfo.objects.create(  # pylint: disable=no-member
+            user=self.user, national_id=national_id, arabic_name="فيدر", occupation="student",
+        )
 
     def tearDown(self):
         """Reset Mocks"""
@@ -224,6 +238,97 @@ class UpdateUserDataTestCase(POSTAuthenticatedTestMixin, APITestCase):
         self.assertDictEqual(response.json(), {"message": "User's fields has been updated successfully"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         accounts.api.update_account_settings.assert_called_once_with(self.user, payload)
+
+    @override_settings(ENABLE_OTP_VALIDATION=False, USER_PROFILE_API_EXTRA_INFO_FIELDS=["national_id"])
+    def test_national_id_change_locked_for_institution_role(self):
+        """
+        Test that an account holding an institution role cannot change its national_id.
+
+        Expected behavior:
+            - Status code 400 with a national_id field error.
+            - The stored national_id is unchanged.
+        """
+        self.create_extra_info("1000000301")
+        self.holds_role_mock.return_value = True
+
+        response = self.client.post(reverse(self.reverse_viewname), {"national_id": "1000000302"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("national_id", response.json()["field_errors"])
+        self.user.extrainfo.refresh_from_db()
+        self.assertEqual(self.user.extrainfo.national_id, "1000000301")
+
+    @override_settings(ENABLE_OTP_VALIDATION=False, USER_PROFILE_API_EXTRA_INFO_FIELDS=["national_id"])
+    def test_national_id_first_set_locked_for_institution_role(self):
+        """
+        Test that an account holding an institution role cannot set a national_id for the first time.
+
+        Expected behavior:
+            - Status code 400 with a national_id field error.
+            - No national_id is stored.
+        """
+        self.holds_role_mock.return_value = True
+
+        response = self.client.post(reverse(self.reverse_viewname), {"national_id": "1000000303"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("national_id", response.json()["field_errors"])
+        self.assertFalse(ExtraInfo.objects.filter(national_id="1000000303").exists())  # pylint: disable=no-member
+
+    @override_settings(ENABLE_OTP_VALIDATION=False, USER_PROFILE_API_EXTRA_INFO_FIELDS=["national_id"])
+    def test_same_national_id_allowed_for_institution_role(self):
+        """
+        Test that re-sending the current national_id is allowed, since profile forms submit every field.
+
+        Expected behavior:
+            - Status code 200.
+            - The role check is not needed.
+        """
+        self.create_extra_info("1000000304")
+        self.holds_role_mock.return_value = True
+
+        response = self.client.post(reverse(self.reverse_viewname), {"national_id": " 1000000304 "}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.holds_role_mock.assert_not_called()
+
+    @override_settings(ENABLE_OTP_VALIDATION=False, USER_PROFILE_API_EXTRA_INFO_FIELDS=["national_id"])
+    def test_national_id_change_allowed_without_institution_role(self):
+        """
+        Test that a learner without an institution role can still correct their national_id.
+
+        Expected behavior:
+            - Status code 200.
+            - The new national_id is stored.
+        """
+        self.create_extra_info("1000000305")
+
+        response = self.client.post(reverse(self.reverse_viewname), {"national_id": "1000000306"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.extrainfo.refresh_from_db()
+        self.assertEqual(self.user.extrainfo.national_id, "1000000306")
+
+    @override_settings(
+        ENABLE_OTP_VALIDATION=False,
+        USER_PROFILE_API_EXTRA_INFO_FIELDS=["national_id", "arabic_first_name"],
+    )
+    def test_other_extra_info_fields_update_for_institution_role(self):
+        """
+        Test that the lock only concerns national_id.
+
+        Expected behavior:
+            - Status code 200.
+            - arabic_first_name is updated for an account holding an institution role.
+        """
+        self.create_extra_info("1000000307")
+        self.holds_role_mock.return_value = True
+
+        response = self.client.post(reverse(self.reverse_viewname), {"arabic_first_name": "أناكين"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.extrainfo.refresh_from_db()
+        self.assertEqual(self.user.extrainfo.arabic_first_name, "أناكين")
 
 
 class GetValidatedUserFieldsTestCase(APITestCase):

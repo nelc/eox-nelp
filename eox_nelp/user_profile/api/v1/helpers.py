@@ -9,11 +9,23 @@ These utilities are intended to centralize user update logic, promote reusabilit
 and maintain clean separation between views and business logic.
 """
 from django.conf import settings
+from django.db.models import Q
 from django.utils.translation import gettext as _
+from opaque_keys.edx.django.models import CourseKeyField
 
+from eox_nelp.edxapp_wrapper.student import CourseAccessRole
 from eox_nelp.edxapp_wrapper.user_api import accounts, errors
-from eox_nelp.utils import save_extrainfo
+from eox_nelp.utils import normalize_national_id, save_extrainfo
 from eox_nelp.validators import validate_phone
+
+# Institution-level roles whose holders may not set or change their own national_id.
+# A national ID identifies an institution admin to integrations (e.g. delegated MCP
+# access), so only staff may put one on such an account. An empty setting disables it.
+DEFAULT_NATIONAL_ID_LOCKED_ROLES = ["staff", "instructor", "data_researcher", "org_course_creator_group"]
+NATIONAL_ID_LOCKED_MESSAGE = (
+    "لا يمكن تعديل رقم الهوية الوطنية ذاتيًا لحسابات أصحاب صلاحيات الجهات، يرجى التواصل مع الدعم. "
+    "National ID cannot be changed here for accounts holding institution roles; please contact support."
+)
 
 
 def update_account(user, data):
@@ -74,4 +86,54 @@ def update_extrainfo(user, data):
     }
 
     if extra_info_data:
+        check_national_id_lock(user, extra_info_data)
         save_extrainfo(user, extra_info_data)
+
+
+def holds_institution_role(user):
+    """
+    Return whether the user holds an institution-level (org-wide, no course) role listed in
+    EOX_NELP_NATIONAL_ID_LOCKED_ROLES.
+
+    Args:
+        user (User): The Django user instance.
+
+    Returns:
+        bool: True when such a role exists, False otherwise or when the setting is empty.
+    """
+    roles = getattr(settings, "EOX_NELP_NATIONAL_ID_LOCKED_ROLES", DEFAULT_NATIONAL_ID_LOCKED_ROLES)
+    if not roles:
+        return False
+
+    return CourseAccessRole.objects.filter(
+        Q(course_id=CourseKeyField.Empty) | Q(course_id__isnull=True),
+        user=user,
+        role__in=list(roles),
+    ).exists()
+
+
+def check_national_id_lock(user, extra_info_data):
+    """
+    Refuse a self-service change of national_id for accounts holding an institution role.
+
+    Re-sending the current value is allowed, since profile forms submit every field. Setting it
+    for the first time is refused too, so one admin cannot claim another admin's unset ID.
+
+    Args:
+        user (User): The Django user instance whose extra info will be updated.
+        extra_info_data (dict): The extra info fields about to be saved.
+
+    Raises:
+        AccountValidationError: When the national_id would change for such an account.
+    """
+    if "national_id" not in extra_info_data:
+        return
+
+    current = getattr(getattr(user, "extrainfo", None), "national_id", None) or ""
+    proposed = extra_info_data["national_id"] or ""
+
+    if normalize_national_id(str(proposed)) == normalize_national_id(str(current)):
+        return
+
+    if holds_institution_role(user):
+        raise errors.AccountValidationError({"national_id": [NATIONAL_ID_LOCKED_MESSAGE]})
