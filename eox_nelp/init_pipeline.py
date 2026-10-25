@@ -34,6 +34,10 @@ Functions:
         Points eox-core's `edxapp-enrollment` URL pattern at the eox-nelp enrollment view
         (decision a2-url-takeover) and raises if eox-core no longer looks the way we expect.
 
+    take_over_core_user_route:
+        Points eox-core's `edxapp-user` URL pattern at `NelpEdxappUser`, which answers 400 instead
+        of 500 when account creation rejects a field. Same mechanism as the enrollment takeover.
+
     patch_form_fields_getattr:
         Dynamically patches the `form_fields` module to include a custom `__getattr__`
         method, enabling runtime generation of field handlers based on configuration.
@@ -50,6 +54,7 @@ from django.utils.translation import gettext_noop
 from eox_nelp.scorm_patches import patch_scorm_get_file_path
 
 CORE_ENROLLMENT_ROUTE = "edxapp-enrollment"  # name of eox-core's enrollment URLPattern
+CORE_USER_ROUTE = "edxapp-user"  # name of eox-core's create-user URLPattern
 
 
 def run_lms_init_pipeline():
@@ -65,6 +70,7 @@ def run_lms_init_pipeline():
     patch_form_fields_getattr()
     disconnect_update_last_login_signal()
     take_over_core_enrollment_route()
+    take_over_core_user_route()
     register_learner_email_tasks()
     patch_scorm_get_file_path()
 
@@ -206,28 +212,42 @@ def disconnect_update_last_login_signal():
 
 
 def take_over_core_enrollment_route():
-    """
-    Make POST /eox-core/api/v1/enrollment/ run `NelpEdxappEnrollment` (decision a2-url-takeover).
-
-    eox-core mounts itself as a plugin and builds this route with `EdxappEnrollment.as_view()` at
-    import time, and plugin URL order is not a contract, so a second route for the same URL may
-    lose. Instead we swap the `callback` of eox-core's own URLPattern: the module is a singleton
-    shared by every URL resolver, and Django reads `callback` at request time, so this holds
-    whatever the plugin or app order. Fails loudly if eox-core renames or removes the route.
-    """
+    """Make POST /eox-core/api/v1/enrollment/ run `NelpEdxappEnrollment` (decision a2-url-takeover)."""
     # pylint: disable=import-outside-toplevel
     # Imported here because eox-core's views need edx-platform settings that do not exist at plugin import.
+    from eox_nelp.enrollment_api.views import NelpEdxappEnrollment
+
+    take_over_core_route(CORE_ENROLLMENT_ROUTE, NelpEdxappEnrollment)
+
+
+def take_over_core_user_route():
+    """Make /eox-core/api/v1/user/ run `NelpEdxappUser` (rejected fields answer 400, not 500)."""
+    # pylint: disable=import-outside-toplevel
+    from eox_nelp.users.core_views import NelpEdxappUser
+
+    take_over_core_route(CORE_USER_ROUTE, NelpEdxappUser)
+
+
+def take_over_core_route(route_name, view_class):
+    """
+    Point eox-core's URLPattern named `route_name` at `view_class`.
+
+    eox-core mounts itself as a plugin and builds its routes with `<View>.as_view()` at import
+    time, and plugin URL order is not a contract, so a second route for the same URL may lose.
+    Instead we swap the `callback` of eox-core's own URLPattern: the module is a singleton shared
+    by every URL resolver, and Django reads `callback` at request time, so this holds whatever the
+    plugin or app order. Fails loudly if eox-core renames or removes the route.
+    """
+    # pylint: disable=import-outside-toplevel
     from django.core.exceptions import ImproperlyConfigured
     from eox_core.api.v1 import urls as core_urls
 
-    from eox_nelp.enrollment_api.views import NelpEdxappEnrollment
-
-    routes = [route for route in core_urls.urlpatterns if route.name == CORE_ENROLLMENT_ROUTE]
+    routes = [route for route in core_urls.urlpatterns if route.name == route_name]
     if len(routes) != 1:
         raise ImproperlyConfigured(
-            f"eox-nelp enrollment takeover: expected exactly one eox-core route named "
-            f"'{CORE_ENROLLMENT_ROUTE}', found {len(routes)}. eox-core changed; review the override."
+            f"eox-nelp takeover: expected exactly one eox-core route named "
+            f"'{route_name}', found {len(routes)}. eox-core changed; review the override."
         )
     route = routes[0]
-    route.callback = NelpEdxappEnrollment.as_view()
+    route.callback = view_class.as_view()
     route.__dict__.pop("lookup_str", None)  # cached name of the old callback, only used for display
