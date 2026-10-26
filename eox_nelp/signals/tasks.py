@@ -37,10 +37,10 @@ from eox_nelp.utils import is_valid_national_id, normalize_national_id
 logger = logging.getLogger(__name__)
 User = get_user_model()
 # The partner's response codes that mean it holds the result. This is the only place a
-# code is mapped to an outcome: 110 currently means both "registration not found" and
-# "already recorded", so it is left out and retried. When the partner splits it, the
-# "already recorded" code goes here and "registration not found" stays out.
-MT_ACKNOWLEDGED_RESPONSE_CODES = frozenset({100})
+# code is mapped to an outcome. Since 2026-10-22 the partner answers 100 "updated",
+# 109 "registration not found", 110 "already updated" and 111 "unexpected error":
+# 100 and 110 stop the sending, every other code (and a timeout) is retried.
+MT_ACKNOWLEDGED_RESPONSE_CODES = frozenset({100, 110})
 # How often an unacknowledged result is sent again, by its age since the first send:
 # (age up to which the interval applies, interval). Past the last age it is abandoned.
 MT_RETRY_SCHEDULE = (
