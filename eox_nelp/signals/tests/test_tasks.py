@@ -523,7 +523,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         return {
             "correlationID": "abc-123",
             "responseCode": response_code,
-            "responseMessage": "Success" if response_code == 100 else "Registration not found",
+            "responseMessage": {100: "Success", 110: "Already updated."}.get(response_code, "Registration not found."),
             "data": {"result": "true" if response_code == 100 else "false"},
         }
 
@@ -585,7 +585,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             - MTTrainingStageError is raised.
             - logger.error outputs the expected log message.
         """
-        response_mock = self.build_response(110)
+        response_mock = self.build_response(109)
         api_mock.return_value.update_training_stage.return_value = response_mock
         log_msg = (
             f"Failed update_training_stage with course_id={self.course_id}, "
@@ -612,7 +612,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             - update_training_stage was called, so the retries are not turned into no-ops.
         """
         current_task_mock.request.retries = 1
-        api_mock.return_value.update_training_stage.return_value = self.build_response(110)
+        api_mock.return_value.update_training_stage.return_value = self.build_response(109)
         MTTrainingStageDelivery.objects.create(  # pylint: disable=no-member
             national_id=self.national_id,
             course_id=self.course_id,
@@ -684,7 +684,7 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
         Expected behavior:
             - The record is not acknowledged and carries the rejection code.
         """
-        api_mock.return_value.update_training_stage.return_value = self.build_response(110)
+        api_mock.return_value.update_training_stage.return_value = self.build_response(109)
 
         with self.assertRaises(MTTrainingStageError):
             update_mt_training_stage(
@@ -699,7 +699,57 @@ class UpdateMtTrainingStageTestCase(unittest.TestCase):
             stage_result=self.stage_result,
         )
         self.assertFalse(delivery.acknowledged)
+        self.assertEqual(delivery.last_response_code, "109")
+
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_already_updated_is_acknowledged(self, api_mock):
+        """Test that 110 "already updated" stops the sending like a 100.
+
+        Expected behavior:
+            - No MTTrainingStageError is raised.
+            - The record is acknowledged and carries code 110.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(110)
+
+        update_mt_training_stage(
+            course_id=self.course_id,
+            national_id=self.national_id,
+            stage_result=self.stage_result,
+        )
+
+        delivery = MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+        self.assertTrue(delivery.acknowledged)
+        self.assertIsNotNone(delivery.acknowledged_at)
         self.assertEqual(delivery.last_response_code, "110")
+
+    @data(109, 111)
+    @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
+    def test_retryable_codes_raise(self, response_code, api_mock):
+        """Test that 109 "registration not found" and 111 "unexpected error" are retried.
+
+        Expected behavior:
+            - MTTrainingStageError is raised so Celery retries.
+            - The record stays unacknowledged.
+        """
+        api_mock.return_value.update_training_stage.return_value = self.build_response(response_code)
+
+        with self.assertRaises(MTTrainingStageError):
+            update_mt_training_stage(
+                course_id=self.course_id,
+                national_id=self.national_id,
+                stage_result=self.stage_result,
+            )
+
+        delivery = MTTrainingStageDelivery.objects.get(  # pylint: disable=no-member
+            national_id=self.national_id,
+            course_id=self.course_id,
+            stage_result=self.stage_result,
+        )
+        self.assertFalse(delivery.acknowledged)
 
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_a_missing_response_code_is_stored_as_null(self, api_mock):
@@ -845,7 +895,7 @@ class MtDeliveryRaceTestCase(unittest.TestCase):
         self.assertEqual(self.reload_delivery().attempts, 1)
 
     def test_a_rejection_recorded_after_the_acknowledgement_does_not_undo_it(self):
-        """Test that a late 110 from a parallel copy leaves the 100 standing.
+        """Test that a late rejection from a parallel copy leaves the 100 standing.
 
         Expected behavior:
             - The record stays acknowledged.
@@ -854,7 +904,7 @@ class MtDeliveryRaceTestCase(unittest.TestCase):
         acknowledged, rejected = self.load_delivery(), self.load_delivery()
 
         _record_mt_delivery(acknowledged, {"responseCode": 100, "responseMessage": "Success"})
-        _record_mt_delivery(rejected, {"responseCode": 110, "responseMessage": "Registration not found"})
+        _record_mt_delivery(rejected, {"responseCode": 109, "responseMessage": "Registration not found."})
 
         delivery = self.reload_delivery()
         self.assertTrue(delivery.acknowledged)
@@ -907,9 +957,9 @@ class MtDeliveryRaceTestCase(unittest.TestCase):
     @patch("eox_nelp.signals.tasks.current_task")
     @patch("eox_nelp.signals.tasks.MinisterOfTourismApiClient")
     def test_a_rejection_after_a_parallel_acknowledgement_is_not_retried(self, api_mock, current_task_mock):
-        """Test that a 110 answered to a copy whose twin was just acknowledged does not raise.
+        """Test that a rejection answered to a copy whose twin was just acknowledged does not raise.
 
-        The 110 is the partner refusing the duplicate, so retrying it would only send
+        The rejection is the partner refusing the duplicate, so retrying it would only send
         the duplicate again and keep the result in the reconciliation backlog.
 
         Expected behavior:
@@ -922,7 +972,7 @@ class MtDeliveryRaceTestCase(unittest.TestCase):
         def acknowledged_meanwhile(**kwargs):  # pylint: disable=unused-argument
             _record_mt_delivery(delivery, {"responseCode": 100, "responseMessage": "Success"})
 
-            return {"responseCode": 110, "responseMessage": "Registration not found"}
+            return {"responseCode": 109, "responseMessage": "Registration not found."}
 
         api_mock.return_value.update_training_stage.side_effect = acknowledged_meanwhile
 
