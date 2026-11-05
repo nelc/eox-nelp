@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from ddt import data, ddt
 from django.test import override_settings
 
-from eox_nelp.middleware import ApiDocsAccessMiddleware, GCPCloudCDNSignedCookieMiddleware
+from eox_nelp.middleware import ApiDocsAccessMiddleware, ExamTimeLimitMiddleware, GCPCloudCDNSignedCookieMiddleware
 
 
 @ddt
@@ -203,3 +203,45 @@ class GCPCloudCDNSignedCookieMiddlewareTestCase(TestCase):
         self.middleware.get_response.assert_called_once_with(request)
         self.assertIn("Set-Cookie", result)
         self.assertIn("Domain=local.openedx.io", result["Set-Cookie"])
+
+
+class ExamTimeLimitMiddlewareTestCase(TestCase):
+    """
+    Unit tests for ExamTimeLimitMiddleware.
+    """
+
+    def setUp(self):
+        """Setup common conditions for every test case."""
+        self.middleware = ExamTimeLimitMiddleware(get_response=Mock())
+
+    def test_call_passes_the_request_on(self):
+        """
+        Expected behavior:
+            - The response of the next layer is returned.
+        """
+        request = Mock()
+
+        self.assertEqual(self.middleware(request), self.middleware.get_response.return_value)
+
+    @patch("eox_nelp.exam_time_limit.refuse_late_answer")
+    def test_other_routes_are_not_checked(self, refuse_mock):
+        """
+        Expected behavior:
+            - process_view returns None without running the check.
+        """
+        request = Mock(resolver_match=Mock(url_name="other"))
+
+        self.assertIsNone(self.middleware.process_view(request, Mock(), (), {}))
+        refuse_mock.assert_not_called()
+
+    @patch("eox_nelp.exam_time_limit.refuse_late_answer")
+    def test_handler_route_is_checked(self, refuse_mock):
+        """
+        Expected behavior:
+            - process_view returns the result of the check.
+        """
+        request = Mock(resolver_match=Mock(url_name="xblock_handler"))
+        kwargs = {"handler": "submit"}
+
+        self.assertEqual(self.middleware.process_view(request, Mock(), (), kwargs), refuse_mock.return_value)
+        refuse_mock.assert_called_once_with(request, kwargs)

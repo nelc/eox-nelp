@@ -159,3 +159,7 @@ msgstr "المتبقي: %(remaining_percent)s٪"
 #: eox_nelp/templates/eox_nelp/edx_ace (learning starts, completion reminder)
 msgid "Complete now"
 msgstr "أكمل الآن"
+
+#: eox_nelp/exam_time_limit.py
+msgid "The time for this exam has ended, so this answer was not saved."
+msgstr "انتهى وقت هذا الاختبار، لذلك لم يتم حفظ هذه الإجابة."
