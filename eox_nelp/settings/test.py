@@ -36,6 +36,7 @@ def test_plugin_settings(settings):  # pylint: disable=too-many-statements
     settings.EOX_NELP_CMS_API_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.cms_api_m_v1'
     settings.EOX_NELP_EVENT_ROUTING_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.event_routing_backends_m_v1'
     settings.EOX_NELP_GRADES_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.grades_m_v1'
+    settings.EOX_NELP_PROCTORING_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.proctoring_t_v1'
     settings.EOX_NELP_COURSE_BLOCKS_BACKEND = 'eox_nelp.edxapp_wrapper.test_backends.course_blocks_m_v1'
     settings.EOX_NELP_COURSEWARE_BACKEND = "eox_nelp.edxapp_wrapper.test_backends.courseware_m_v1"
     settings.EOX_NELP_INSTRUCTOR_BACKEND = "eox_nelp.edxapp_wrapper.test_backends.instructor_m_v1"

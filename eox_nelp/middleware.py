@@ -142,3 +142,37 @@ class GCPCloudCDNSignedCookieMiddleware:
             response["Set-Cookie"] = "; ".join(parts)
 
         return response
+
+
+class ExamTimeLimitMiddleware:
+    """
+    Middleware that refuses answers sent to a timed exam after the learner's attempt ended.
+
+    It sits on the XBlock handler route because every answer type goes through it. See eox_nelp.exam_time_limit.
+    """
+
+    HANDLER_URL_NAME = "xblock_handler"
+
+    def __init__(self, get_response):
+        """
+        Initialize middleware with Django's response handler.
+        """
+        self.get_response = get_response
+
+    def __call__(self, request):
+        """
+        Let the request through; the check runs in process_view, once the route is resolved.
+        """
+        return self.get_response(request)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):  # pylint: disable=unused-argument
+        """
+        Return the refusal for a late exam answer on the handler route, or None to continue.
+        """
+        if request.resolver_match.url_name != self.HANDLER_URL_NAME:
+            return None
+
+        # Imported here because this file is imported while the settings load, before the apps are ready.
+        from eox_nelp.exam_time_limit import refuse_late_answer  # pylint: disable=import-outside-toplevel
+
+        return refuse_late_answer(request, view_kwargs)
