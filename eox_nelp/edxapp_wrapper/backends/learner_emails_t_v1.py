@@ -166,6 +166,12 @@ def is_enrolled(user_id, course_id):
     return CourseEnrollment.objects.filter(user_id=user_id, course_id=course_id, is_active=True).exists()
 
 
+def iter_certified_users(course_id):
+    """User ids holding a downloadable certificate for the course (the set form of `has_certificate`), streamed."""
+    rows = GeneratedCertificate.objects.filter(course_id=course_id, status=CertificateStatuses.downloadable)
+    return rows.values_list("user_id", flat=True).iterator(chunk_size=2000)
+
+
 def has_certificate(user_id, course_id):
     """True when the learner already holds a downloadable certificate for the course."""
     return GeneratedCertificate.objects.filter(

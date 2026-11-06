@@ -1,4 +1,4 @@
-# pylint: disable=too-many-instance-attributes,too-many-locals,missing-function-docstring
+# pylint: disable=too-many-instance-attributes,too-many-locals,missing-function-docstring,too-many-public-methods
 # pylint: disable=attribute-defined-outside-init,keyword-arg-before-vararg
 """Integration tests: the hourly command and the backfill, from selection to the (mocked) send."""
 from datetime import datetime, timedelta
@@ -64,6 +64,7 @@ class FakePlatform:
             f"{J}.find_courses_ending": ending,
             f"{J}.iter_enrollments": enrolled,
             f"{J}.iter_progress": progress,
+            f"{J}.iter_certified_users": lambda cid: iter([u for u, c in fake.certificates if c == cid]),
             f"{T}.get_progress": lambda uid, cid: fake.progress.get((uid, str(cid)), 0.0),
             f"{T}.is_enrolled": lambda uid, cid: any(u == uid and a for u, _c, a in fake.enrolments[str(cid)]),
             f"{T}.has_certificate": lambda uid, cid: (uid, str(cid)) in fake.certificates,
@@ -103,7 +104,7 @@ class FakePlatform:
                 tasks.deliver_completion_reminder(user_id, course_id, kind)
 
         queue = patch(f"{CMD}.queue_email", side_effect=run_now)
-        queue.start()
+        self.queued = queue.start()
         self.patchers.append(queue)
         domain = patch(f"{CMD}.tenant_domain_for_org", side_effect=lambda org: f"{org.lower()}.example.com")
         domain.start()
@@ -232,6 +233,59 @@ class JourneyCommandsTestCase(TestCase):
         self._run("send_journey_emails", "--kind", REMINDER_PROGRESS)
 
         self.assertEqual(self._rows(REMINDER_PROGRESS), set())
+
+    def _queued(self):
+        return [c.args for c in self.platform.queued.call_args_list]
+
+    def test_skipped_learners_are_not_queued_again(self):
+        """A certificate holder (1) and a complete learner (4) are never queued, however often the job runs.
+
+        The task skips them without a log row, so selecting them meant one useless task per learner per
+        run: 7.3M of them filled the Celery queue and Redis on 2026-11-05.
+        """
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+        self.platform.certificates.add((1, C1))
+
+        self._run("send_journey_emails", "--kind", REMINDER_END)
+        self._run("send_journey_emails", "--kind", REMINDER_END)
+
+        self.assertEqual(self._queued(), [(REMINDER_END, 3, C1)])  # once: the second run finds its log row
+
+    def test_progress_reminder_does_not_queue_certificate_holders(self):
+        """User 3 (82%) holds the certificate: not selected, so not queued every 6 hours."""
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+        self.platform.certificates.add((3, C1))
+
+        self._run("send_journey_emails", "--kind", REMINDER_PROGRESS)
+
+        self.assertEqual(self._queued(), [])
+
+    def test_connection_is_released_before_queueing(self):
+        """The selection's queries all run first; the connection is then closed so a long queue can't leave it dead."""
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+        order = []
+        self.platform.queued.side_effect = lambda *args: order.append("queue")
+
+        with patch(f"{CMD}.connection") as connection:
+            connection.in_atomic_block = False
+            connection.close.side_effect = lambda: order.append("close")
+            self._run("send_journey_emails", "--kind", REMINDER_END)
+
+        self.assertEqual(order, ["close", "queue", "queue"])
+
+    def test_connection_kept_without_candidates_or_inside_a_transaction(self):
+        """Nothing to queue, a dry run, or an open transaction: the connection is not closed."""
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+
+        with patch(f"{CMD}.connection") as connection:
+            connection.in_atomic_block = False
+            self._run("send_journey_emails", "--kind", REMINDER_END, "--dry-run")
+            self._run("send_journey_emails", "--kind", LEARNING_STARTS)  # switch off: no candidates
+            connection.close.assert_not_called()
+
+            connection.in_atomic_block = True
+            self._run("send_journey_emails", "--kind", REMINDER_END)
+            connection.close.assert_not_called()
 
     def test_end_window_edges(self):
         """The reminder fires at 7 and 3 days before the end and not at 7.1 or 2.9."""

@@ -19,6 +19,7 @@ from eox_nelp.edxapp_wrapper.learner_emails import (
     find_courses_ending,
     find_running_courses,
     find_started_courses,
+    iter_certified_users,
     iter_enrollments,
     iter_progress,
     list_orgs,
@@ -99,6 +100,20 @@ def _unsent(course_id, kind):
         course_id=course_id, kind=kind).values_list("user_id", flat=True))
 
 
+def _settled(course_id, include_complete=False):
+    """User ids the completion reminders always skip: certificate holders (cr-m5-cert-skip), optionally
+    also learners at 100%.
+
+    The task re-checks both and skips without writing a log row, so a learner left in the selection
+    would be queued again on every run until the course leaves the window. Excluding them here
+    keeps the selection to the learners the task would actually e-mail.
+    """
+    settled = set(iter_certified_users(course_id))
+    if include_complete:
+        settled.update(user_id for user_id, _percent in iter_progress(course_id, 1))
+    return settled
+
+
 def learning_starts_candidates(org, now):
     """Yield (user_id, course_id) to e-mail Message 3: enrolled BEFORE the start of a course that just started."""
     for course_id, _org, start, _end in find_started_courses(org, now - LEARNING_STARTS_LOOKBACK, now):
@@ -115,7 +130,7 @@ def progress_candidates(org, now):
     percent_threshold, _window = reminder_thresholds(org)
 
     for course_id, _org, _start, _end in find_running_courses(org, now):
-        sent = _unsent(course_id, REMINDER_PROGRESS)
+        sent = _unsent(course_id, REMINDER_PROGRESS) | _settled(course_id)
         active = {user_id for user_id, _created in iter_enrollments(course_id)}
         for user_id, percent in iter_progress(course_id, percent_threshold / 100 - 1e-9):
             if user_id in active and user_id not in sent and progress_due(percent, percent_threshold):
@@ -131,7 +146,7 @@ def end_window_candidates(org, now):
     ):
         if not end_window_due(end, now, min_days, max_days):
             continue
-        sent = _unsent(course_id, REMINDER_END)
+        sent = _unsent(course_id, REMINDER_END) | _settled(course_id, include_complete=True)
         for user_id, _created in iter_enrollments(course_id):
             if user_id not in sent:
                 yield user_id, course_id
