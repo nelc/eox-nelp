@@ -13,6 +13,7 @@ To run it use:
 import logging
 
 from django.core.management import BaseCommand
+from django.db import connection
 from django.utils import timezone
 
 from eox_nelp.learner_emails.journey import JourneyConfigError, iter_jobs
@@ -22,6 +23,18 @@ from eox_nelp.learner_emails.tenant import tenant_domain_for_org
 
 logger = logging.getLogger(__name__)
 KINDS = (LEARNING_STARTS, REMINDER_PROGRESS, REMINDER_END)
+
+
+def release_db_connection():
+    """Close the DB connection before a long queueing loop; the next query opens a fresh one.
+
+    Queueing runs at about 7 ms per learner and touches no table, so a course with tens of thousands of
+    learners leaves the connection idle past the server's wait_timeout (300 s on the prod primary).
+    The next org's query then dies with MySQL 4031 and the Job restarts the whole run from the top.
+    Inside a transaction (the tests) the connection is kept, as `close_old_connections` does.
+    """
+    if not connection.in_atomic_block:
+        connection.close()
 
 
 def queue_email(kind, user_id, course_id):
@@ -47,15 +60,16 @@ class Command(BaseCommand):
         total = 0
 
         for org, kind, selector in iter_jobs(kinds=options["kind"]):
-            count = 0
             try:
-                for user_id, course_id in selector(org, now):
-                    count += 1
-                    if not options["dry_run"]:
-                        queue_email(kind, user_id, course_id)
+                candidates = list(selector(org, now))  # every query of the job runs here, before the queueing
             except JourneyConfigError as error:
                 logger.error("journey_email_config_error kind=%s %s", kind, error)
                 continue
+            count = len(candidates)
+            if candidates and not options["dry_run"]:
+                release_db_connection()
+                for user_id, course_id in candidates:
+                    queue_email(kind, user_id, course_id)
             self.stdout.write(f"{tenant_domain_for_org(org)} org={org} kind={kind}: {count}")
             total += count
 

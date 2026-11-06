@@ -16,6 +16,7 @@ Attributes:
     find_started_courses / find_courses_ending / find_running_courses: Course rows (course_id, org, start, end).
     iter_enrollments: (user_id, created) of the active enrollments of a course.
     iter_progress: (user_id, percent 0..1) of the course-completion aggregates of a course at/over a minimum.
+    iter_certified_users: User ids holding a downloadable certificate for a course.
     get_progress: One learner's course completion, 0..1 (0 when there is no aggregate).
     is_enrolled / has_certificate: Active enrollment / downloadable certificate checks of one learner.
     get_course_path: Path of the course home page.
@@ -42,6 +43,7 @@ find_courses_ending = backend.find_courses_ending
 find_running_courses = backend.find_running_courses
 iter_enrollments = backend.iter_enrollments
 iter_progress = backend.iter_progress
+iter_certified_users = backend.iter_certified_users
 get_progress = backend.get_progress
 is_enrolled = backend.is_enrolled
 has_certificate = backend.has_certificate
