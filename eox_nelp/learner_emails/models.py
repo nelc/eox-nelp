@@ -13,7 +13,9 @@ class LearnerEmailLog(models.Model):
     """One row per learner e-mail that was claimed: (user, course, kind) is unique.
 
     The row is inserted BEFORE the mail is sent, so two racing workers cannot both send it,
-    and it is what the backfill command writes to say "this learner already has it".
+    and it is what the backfill command writes to say "this learner already has it". The task
+    also writes it, without sending, for a learner who must never get the mail (tasks.SETTLED).
+    So a row means "settled for this learner", not "sent": count sends from the `sent` log lines.
 
     There is deliberately NO foreign key to auth_user: adding one to a big table stalled a
     production migration for 11 minutes on 2026-10-01. Plain integers keep the migration instant.

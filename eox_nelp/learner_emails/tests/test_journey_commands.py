@@ -240,8 +240,8 @@ class JourneyCommandsTestCase(TestCase):
     def test_skipped_learners_are_not_queued_again(self):
         """A certificate holder (1) and a complete learner (4) are never queued, however often the job runs.
 
-        The task skips them without a log row, so selecting them meant one useless task per learner per
-        run: 7.3M of them filled the Celery queue and Redis on 2026-11-05.
+        Selecting them meant one useless task per learner per run: 7.3M of them filled the Celery queue
+        and Redis on 2026-11-05.
         """
         self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
         self.platform.certificates.add((1, C1))
@@ -259,6 +259,44 @@ class JourneyCommandsTestCase(TestCase):
         self._run("send_journey_emails", "--kind", REMINDER_PROGRESS)
 
         self.assertEqual(self._queued(), [])
+
+    def test_settled_learner_the_selection_misses_is_queued_once(self):
+        """The selection can't see user 3's certificate (its view lags the task's): queued once, recorded, never again."""
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+        self.platform.certificates.add((3, C1))
+
+        with patch(f"{J}.iter_certified_users", return_value=iter(())):
+            self._run("send_journey_emails", "--kind", REMINDER_END)
+        with patch(f"{J}.iter_certified_users", return_value=iter(())):
+            self._run("send_journey_emails", "--kind", REMINDER_END)
+
+        self.assertEqual(self._queued().count((REMINDER_END, 3, C1)), 1)
+        self.assertIn((3, C1), self._rows(REMINDER_END))
+        self.assertEqual([m.context["full_name"] for m in self.platform.sends], ["Learner 1"])
+
+    def test_complete_learner_is_settled_without_a_mail(self):
+        """A learner the task finds at 100% gets a log row and no e-mail."""
+        self.platform.progress[(1, C1)] = 1.0
+
+        tasks.deliver_completion_reminder(1, C1, REMINDER_END)
+
+        self.assertEqual(self._rows(REMINDER_END), {(1, C1)})
+        self.assertEqual(self.platform.sends, [])
+
+    def test_a_temporary_skip_is_not_recorded(self):
+        """Below the threshold at the task's re-check: no row, so the learner is reminded once progress rises."""
+        self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
+        self.platform.progress[(3, C1)] = 0.6  # selected by the command's view, below 80% at the task
+
+        with patch(f"{J}.iter_progress", side_effect=lambda cid, minimum: iter([(3, 0.82)] if cid == C1 else [])):
+            self._run("send_journey_emails", "--kind", REMINDER_PROGRESS)
+        self.assertEqual(self._rows(REMINDER_PROGRESS), set())
+
+        self.platform.progress[(3, C1)] = 0.82
+        self._run("send_journey_emails", "--kind", REMINDER_PROGRESS)
+
+        self.assertEqual(self._rows(REMINDER_PROGRESS), {(3, C1)})
+        self.assertEqual(len(self.platform.sends), 1)
 
     def test_connection_is_released_before_queueing(self):
         """The selection's queries all run first; the connection is then closed so a long queue can't leave it dead."""
