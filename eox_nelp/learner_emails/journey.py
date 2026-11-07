@@ -104,9 +104,9 @@ def _settled(course_id, include_complete=False):
     """User ids the completion reminders always skip: certificate holders (cr-m5-cert-skip), optionally
     also learners at 100%.
 
-    The task re-checks both and skips without writing a log row, so a learner left in the selection
-    would be queued again on every run until the course leaves the window. Excluding them here
-    keeps the selection to the learners the task would actually e-mail.
+    The task re-checks both and records them as settled (a log row, no mail), so a learner this
+    misses is queued once, not on every run. Excluding them here saves even that first pass, which
+    for a large course is tens of thousands of useless tasks.
     """
     settled = set(iter_certified_users(course_id))
     if include_complete:

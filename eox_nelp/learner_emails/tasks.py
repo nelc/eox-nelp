@@ -33,6 +33,12 @@ User = get_user_model()
 MAX_RETRIES = 3
 RETRY_BASE_SECONDS = 60  # 60s, 120s, 240s between attempts
 
+# `prepare()` result: this learner must never get this e-mail (e.g. already certified). Unlike None
+# (nothing to send NOW), the log row is written, so the hourly selection stops picking the learner even
+# when its own view disagrees with the task's re-check. Without it, every such learner was re-queued
+# every run: 7.3M useless tasks filled the Celery queue and Redis on 2026-11-05.
+SETTLED = object()
+
 
 class EmailNotDeliveredError(Exception):
     """ACE did not report the e-mail as delivered."""
@@ -69,8 +75,9 @@ def _deliver(kind, message_class, user_id, course_id, prepare):
     """Send one learner e-mail once; raise on any failure so the caller can retry.
 
     The tenant is bound first (branding, flags, theme), `prepare(user, course_key)` decides whether
-    there is anything to send (None = skip) and returns the message-specific context, then the log
-    row is claimed and the mail sent. If the send fails the claim is released so a retry can take it.
+    there is anything to send (None = skip for now, SETTLED = skip for good and record it) and returns
+    the message-specific context, then the log row is claimed and the mail sent. If the send fails the
+    claim is released so a retry can take it.
     """
     course_key = CourseKey.from_string(course_id)
     domain = bind_tenant_for_org(course_key.org)
@@ -80,6 +87,11 @@ def _deliver(kind, message_class, user_id, course_id, prepare):
 
     if extras is None:
         logger.info("%s skipped, nothing to send user_id=%s course_id=%s", kind, user_id, course_id)
+        return
+
+    if extras is SETTLED:
+        _claim(user_id, course_id, kind)
+        logger.info("%s settled, recorded without sending user_id=%s course_id=%s", kind, user_id, course_id)
         return
 
     if not _claim(user_id, course_id, kind):
@@ -130,12 +142,16 @@ def deliver_completion_reminder(user_id, course_id, kind):
 
     Everything is re-checked here (the command's list may be an hour old): still enrolled, no
     certificate yet, not complete, and for the progress kind still at or over the tenant threshold.
+    A certificate holder or a complete learner is SETTLED (recorded, never reminded); the other
+    skips can change (progress rises, the learner re-enrolls) and are not recorded.
     """
     def prepare(user, course_key):
         percent = get_progress(user.id, course_key)
+        if percent >= 1 or has_certificate(user.id, course_key):
+            return SETTLED
         threshold, _window = reminder_thresholds(course_key.org)
-        due = progress_due(percent, threshold) if kind == REMINDER_PROGRESS else percent < 1
-        if not due or not is_enrolled(user.id, course_key) or has_certificate(user.id, course_key):
+        due = progress_due(percent, threshold) if kind == REMINDER_PROGRESS else True
+        if not due or not is_enrolled(user.id, course_key):
             return None
         completed = int(round(percent * 100, 6))  # whole percent, rounded down
         return {"completed_percent": completed, "remaining_percent": 100 - completed,
