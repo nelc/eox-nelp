@@ -261,7 +261,7 @@ class JourneyCommandsTestCase(TestCase):
         self.assertEqual(self._queued(), [])
 
     def test_settled_learner_the_selection_misses_is_queued_once(self):
-        """The selection can't see user 3's certificate (its view lags the task's): queued once, recorded, never again."""
+        """The selection misses user 3's certificate (its view lags the task's): queued once, recorded, never again."""
         self._enable("KSU", "COMPLETION_REMINDER_EMAIL_ENABLED")
         self.platform.certificates.add((3, C1))
 
