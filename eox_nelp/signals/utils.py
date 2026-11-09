@@ -135,6 +135,31 @@ def get_completed_and_graded(user_id, course_id):
     return is_complete, is_graded
 
 
+def _lti_ags_score_skip_reason(score):
+    """Why an AGS score must not complete its block, from the score alone, or None when it may.
+
+    Args:
+        score<LtiAgsScore>: The AGS score row.
+
+    Returns:
+        str or None: not_completed, scored or out_of_scope.
+    """
+    if score.activity_progress != LTI_ACTIVITY_COMPLETED:
+        return "not_completed"
+
+    if score.score_given is not None:
+        return "scored"
+
+    line_item = score.line_item
+    resource_link_id = str(line_item.resource_link_id or "")
+
+    # Same guard as lti_consumer: a tool may only write to the block of its own configuration.
+    if not resource_link_id or resource_link_id != str(line_item.lti_configuration.location):
+        return "out_of_scope"
+
+    return None
+
+
 def complete_lti_block_from_ags_score(score, apply=True, only_user_id=None):
     """Mark the LTI block of an AGS score complete when the tool reports the activity Completed.
 
@@ -151,18 +176,10 @@ def complete_lti_block_from_ags_score(score, apply=True, only_user_id=None):
         str: Outcome label: not_completed, scored, out_of_scope, unknown_user, other_user,
             already_complete or completed.
     """
-    if score.activity_progress != LTI_ACTIVITY_COMPLETED:
-        return "not_completed"
+    skip_reason = _lti_ags_score_skip_reason(score)
 
-    if score.score_given is not None:
-        return "scored"
-
-    line_item = score.line_item
-    resource_link_id = str(line_item.resource_link_id or "")
-
-    # Same guard as lti_consumer: a tool may only write to the block of its own configuration.
-    if not resource_link_id or resource_link_id != str(line_item.lti_configuration.location):
-        return "out_of_scope"
+    if skip_reason:
+        return skip_reason
 
     user = get_user_from_external_user_id(score.user_id)
 
@@ -172,7 +189,7 @@ def complete_lti_block_from_ags_score(score, apply=True, only_user_id=None):
     if only_user_id is not None and user.id != only_user_id:
         return "other_user"
 
-    block_key = UsageKey.from_string(resource_link_id)
+    block_key = UsageKey.from_string(str(score.line_item.resource_link_id))
 
     if BlockCompletion.objects.filter(
         user=user, context_key=block_key.context_key, block_key=block_key, completion__gte=1,
