@@ -3,19 +3,23 @@
 Functions:
     _generate_external_certificate_data: Generates dict data from CertificateData.
     _user_has_passing_grade: Determines if the user has a passing grade
+    complete_lti_block_from_ags_score: Marks an LTI block complete when the tool reports the activity Completed.
 """
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from eox_core.edxapp_wrapper.courseware import get_courseware_courses
 from eox_core.edxapp_wrapper.grades import get_course_grade_factory
-from opaque_keys.edx.keys import CourseKey
+from opaque_keys.edx.keys import CourseKey, UsageKey
 
+from eox_nelp.edxapp_wrapper.completion import BlockCompletion
+from eox_nelp.edxapp_wrapper.lti_consumer import get_user_from_external_user_id
 from eox_nelp.edxapp_wrapper.modulestore import modulestore
 from eox_nelp.utils import is_valid_national_id
 
 CourseGradeFactory = get_course_grade_factory()
 User = get_user_model()
 courses = get_courseware_courses()
+LTI_ACTIVITY_COMPLETED = "Completed"
 
 
 def _generate_external_certificate_data(time, certificate_data):
@@ -129,3 +133,53 @@ def get_completed_and_graded(user_id, course_id):
     is_graded = bool(grading_policy["GRADER"])
 
     return is_complete, is_graded
+
+
+def complete_lti_block_from_ags_score(score, apply=True, only_user_id=None):
+    """Mark the LTI block of an AGS score complete when the tool reports the activity Completed.
+
+    Some tools (AWS Skill Builder) only send `activityProgress=Completed` and never a score, while
+    lti_consumer only acts on FullyGraded scores, so the learner's progress was dropped. Scored
+    rows are left to lti_consumer's own grade path, so the two never write the same block.
+
+    Args:
+        score<LtiAgsScore>: The AGS score row.
+        apply (bool): Write the completion. False only reports what would happen.
+        only_user_id (int): When set, rows of any other user are skipped.
+
+    Returns:
+        str: Outcome label: not_completed, scored, out_of_scope, unknown_user, other_user,
+            already_complete or completed.
+    """
+    if score.activity_progress != LTI_ACTIVITY_COMPLETED:
+        return "not_completed"
+
+    if score.score_given is not None:
+        return "scored"
+
+    line_item = score.line_item
+    resource_link_id = str(line_item.resource_link_id or "")
+
+    # Same guard as lti_consumer: a tool may only write to the block of its own configuration.
+    if not resource_link_id or resource_link_id != str(line_item.lti_configuration.location):
+        return "out_of_scope"
+
+    user = get_user_from_external_user_id(score.user_id)
+
+    if user is None:
+        return "unknown_user"
+
+    if only_user_id is not None and user.id != only_user_id:
+        return "other_user"
+
+    block_key = UsageKey.from_string(resource_link_id)
+
+    if BlockCompletion.objects.filter(
+        user=user, context_key=block_key.context_key, block_key=block_key, completion__gte=1,
+    ).exists():
+        return "already_complete"
+
+    if apply:
+        BlockCompletion.objects.submit_completion(user=user, block_key=block_key, completion=1.0)
+
+    return "completed"

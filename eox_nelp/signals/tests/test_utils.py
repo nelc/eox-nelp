@@ -2,6 +2,7 @@
 Classes:
     UserHasPassingGradeTestCase: Test _user_has_passing_grade function.
     GenerateExternalCertificateDataTestCase: Test _generate_external_certificate_data function.
+    CompleteLtiBlockFromAgsScoreTestCase: Test complete_lti_block_from_ags_score function.
 """
 import unittest
 
@@ -11,11 +12,15 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.utils import timezone
-from mock import patch
-from opaque_keys.edx.keys import CourseKey
+from mock import Mock, patch
+from opaque_keys.edx.keys import CourseKey, UsageKey
 from openedx_events.learning.data import CertificateData, CourseData, UserData, UserPersonalData
 
-from eox_nelp.signals.utils import _generate_external_certificate_data, _user_has_passing_grade
+from eox_nelp.signals.utils import (
+    _generate_external_certificate_data,
+    _user_has_passing_grade,
+    complete_lti_block_from_ags_score,
+)
 
 User = get_user_model()
 
@@ -243,3 +248,74 @@ class GenerateExternalCertificateDataTestCase(TestCase):
             saml_association_user,
             str(certificate_data.course.course_key)
         )
+
+
+LTI_BLOCK = "block-v1:mcit+aws+T1+type@lti_consumer+block@lesson1"
+
+
+@patch("eox_nelp.signals.utils.BlockCompletion")
+@patch("eox_nelp.signals.utils.get_user_from_external_user_id")
+class CompleteLtiBlockFromAgsScoreTestCase(unittest.TestCase):
+    """Test class for function `complete_lti_block_from_ags_score`"""
+
+    def _score(self, activity_progress="Completed", score_given=None, resource_link_id=LTI_BLOCK, location=LTI_BLOCK):
+        """AGS score stand-in of a line item linked to its own configuration."""
+        line_item = Mock(resource_link_id=resource_link_id, lti_configuration=Mock(location=location))
+
+        return Mock(activity_progress=activity_progress, score_given=score_given, line_item=line_item, user_id="sub")
+
+    def test_completes_block(self, get_user_mock, completion_mock):
+        """A Completed score without a score writes a full completion of its own block.
+
+        Expected behavior:
+            - The user is resolved from the LTI sub.
+            - submit_completion is called once with the block UsageKey and 1.0.
+            - The outcome is `completed`.
+        """
+        completion_mock.objects.filter.return_value.exists.return_value = False
+        block_key = UsageKey.from_string(LTI_BLOCK)
+
+        outcome = complete_lti_block_from_ags_score(self._score())
+
+        self.assertEqual(outcome, "completed")
+        get_user_mock.assert_called_once_with("sub")
+        completion_mock.objects.submit_completion.assert_called_once_with(
+            user=get_user_mock.return_value, block_key=block_key, completion=1.0,
+        )
+
+    def test_dry_run_writes_nothing(self, get_user_mock, completion_mock):  # pylint: disable=unused-argument
+        """apply=False reports `completed` without writing."""
+        completion_mock.objects.filter.return_value.exists.return_value = False
+
+        outcome = complete_lti_block_from_ags_score(self._score(), apply=False)
+
+        self.assertEqual(outcome, "completed")
+        completion_mock.objects.submit_completion.assert_not_called()
+
+    def test_skips(self, get_user_mock, completion_mock):
+        """Every early return has its own outcome and never writes.
+
+        Expected behavior:
+            - Not Completed, scored, foreign block, unknown user, other user and already complete are skipped.
+        """
+        completion_mock.objects.filter.return_value.exists.return_value = False
+        get_user_mock.return_value = Mock(id=7)
+        cases = [
+            ("not_completed", self._score(activity_progress="InProgress"), {}),
+            ("scored", self._score(score_given=0.8), {}),
+            ("out_of_scope", self._score(location="block-v1:mcit+aws+T1+type@lti_consumer+block@other"), {}),
+            ("out_of_scope", self._score(resource_link_id=None), {}),
+            ("other_user", self._score(), {"only_user_id": 8}),
+        ]
+
+        for expected, score, kwargs in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(complete_lti_block_from_ags_score(score, **kwargs), expected)
+
+        get_user_mock.return_value = None
+        self.assertEqual(complete_lti_block_from_ags_score(self._score()), "unknown_user")
+
+        get_user_mock.return_value = Mock(id=7)
+        completion_mock.objects.filter.return_value.exists.return_value = True
+        self.assertEqual(complete_lti_block_from_ags_score(self._score(), only_user_id=7), "already_complete")
+        completion_mock.objects.submit_completion.assert_not_called()
