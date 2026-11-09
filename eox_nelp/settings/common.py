@@ -31,7 +31,7 @@ CUSTOM_REG_FORM_APP = 'custom_reg_form.apps.CustomRegFormConfig'
 LOCALE_PATHS = ["eox_nelp/locale"]
 
 
-def plugin_settings(settings):
+def plugin_settings(settings):  # pylint: disable=too-many-statements
     """
     Defines eox-nelp settings when app is used as a plugin to edx-platform.
     See: https://github.com/edx/edx-platform/blob/master/openedx/core/djangoapps/plugins/README.rst
@@ -63,6 +63,8 @@ def plugin_settings(settings):
     settings.EOX_NELP_CONTENTSTORE = 'eox_nelp.edxapp_wrapper.backends.contentstore_r_v1'
     settings.EOX_NELP_ENROLLMENT_API_BACKEND = 'eox_nelp.edxapp_wrapper.backends.enrollment_api_m_v1'
     settings.EOX_NELP_LEARNER_EMAILS_BACKEND = 'eox_nelp.edxapp_wrapper.backends.learner_emails_t_v1'
+    settings.EOX_NELP_COMPLETION_BACKEND = 'eox_nelp.edxapp_wrapper.backends.completion_t_v1'
+    settings.EOX_NELP_LTI_CONSUMER_BACKEND = 'eox_nelp.edxapp_wrapper.backends.lti_consumer_t_v1'
 
     settings.EOX_NELP_MFE_CONFIG_API_CACHE_TIMEOUT = 300
 

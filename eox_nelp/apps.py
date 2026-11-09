@@ -123,6 +123,12 @@ class EoxNelpConfig(AppConfig):
                         'signal_path': 'openedx.core.djangoapps.signals.signals.COURSE_GRADE_NOW_PASSED',
                         'dispatch_uid': 'pearson_vue_course_passed_receiver',
                     },
+                    {
+                        'receiver_func_name': 'lti_ags_score_completion_handler',
+                        'signal_path': 'django.db.models.signals.post_save',
+                        'dispatch_uid': 'lti_ags_score_completion_receiver',
+                        'sender_path': 'lti_consumer.models.LtiAgsScore',
+                    },
                 ],
             },
         },

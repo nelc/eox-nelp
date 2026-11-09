@@ -10,6 +10,7 @@ Classes:
     MtCoursePassesHandlerTestCase: Test mt_course_passed_handler receiver.
     MtCourseFailedHandlerTestCase: Test mt_course_failed_handler receiver.
     ListenForCourseDeleteTestCase: Test listen_for_course_delete receiver.
+    LtiAgsScoreCompletionHandlerTestCase: Test lti_ags_score_completion_handler receiver.
 """
 import unittest
 from unittest.mock import MagicMock, patch
@@ -40,6 +41,7 @@ from eox_nelp.signals.receivers import (
     enrollment_publisher,
     include_tracker_context,
     listen_for_course_delete,
+    lti_ags_score_completion_handler,
     mt_course_completion_handler,
     mt_course_failed_handler,
     mt_course_passed_handler,
@@ -1021,3 +1023,26 @@ class ReceiveCourseCreatedForModesTestCase(unittest.TestCase):
 
         # Assert the Celery task was not triggered
         create_course_mode_mock.apply_async.assert_not_called()
+
+
+@patch("eox_nelp.signals.receivers.transaction.on_commit", side_effect=lambda func: func())
+@patch("eox_nelp.signals.receivers.complete_lti_block_from_ags_score")
+class LtiAgsScoreCompletionHandlerTestCase(unittest.TestCase):
+    """Test class for lti_ags_score_completion_handler receiver."""
+
+    def test_completes_after_commit(self, complete_mock, on_commit_mock):
+        """The completion runs inside on_commit with the saved score."""
+        complete_mock.return_value = "completed"
+        score = Mock(pk=5)
+
+        lti_ags_score_completion_handler(instance=score)
+
+        on_commit_mock.assert_called_once()
+        complete_mock.assert_called_once_with(score)
+
+    def test_never_raises(self, complete_mock, on_commit_mock):  # pylint: disable=unused-argument
+        """A failure is logged, not raised into the tool's AGS request."""
+        complete_mock.side_effect = ValueError("boom")
+
+        with self.assertLogs(receivers.LOGGER, level="ERROR"):
+            lti_ags_score_completion_handler(instance=Mock(pk=5))

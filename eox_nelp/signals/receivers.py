@@ -14,6 +14,7 @@ Functions:
     mt_course_completion_handler: Updates mt training stage based on completion events.
     mt_course_passed_handler: Updates mt training stage based on COURSE_GRADE_NOW_PASSED signal.
     mt_course_failed_handler: Updates mt training stage based on COURSE_GRADE_NOW_FAILED signal.
+    lti_ags_score_completion_handler: Marks an LTI block complete when the tool reports the activity Completed.
 """
 import logging
 
@@ -44,7 +45,11 @@ from eox_nelp.signals.tasks import (
     set_default_advanced_modules,
     update_mt_training_stage,
 )
-from eox_nelp.signals.utils import _generate_external_certificate_data, get_completed_and_graded
+from eox_nelp.signals.utils import (
+    _generate_external_certificate_data,
+    complete_lti_block_from_ags_score,
+    get_completed_and_graded,
+)
 
 User = get_user_model()
 UserSignupSource = get_user_signup_source()
@@ -485,6 +490,28 @@ def pearson_vue_course_passed_handler(user, course_id, **kwargs):  # pylint: dis
         exam_id=str(course_id),
         action_name="rti",
     )
+
+
+def lti_ags_score_completion_handler(instance, **kwargs):  # pylint: disable=unused-argument
+    """Receiver of the LtiAgsScore post_save: completes the LTI block when the tool says Completed.
+
+    It runs after the commit and never raises, because it executes inside the tool's AGS request
+    and a failure here must not turn the tool's score POST into a 500.
+
+    Args:
+        instance<LtiAgsScore>: The saved AGS score.
+    """
+    def complete():
+        try:
+            outcome = complete_lti_block_from_ags_score(instance)
+        except Exception:  # pylint: disable=broad-exception-caught
+            LOGGER.exception("Could not complete the LTI block of AGS score %s", instance.pk)
+            return
+
+        if outcome == "completed":
+            LOGGER.info("LTI block completed from AGS score %s", instance.pk)
+
+    transaction.on_commit(complete)
 
 
 def receive_course_created(course, **kwargs):  # pylint: disable=unused-argument
