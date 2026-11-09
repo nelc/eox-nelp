@@ -18,6 +18,8 @@ from eox_nelp.utils import (
     extract_course_id_from_string,
     get_course_from_id,
     get_item_label,
+    is_valid_national_id_check_digit,
+    national_id_variants,
     normalize_national_id,
     save_extrainfo,
 )
@@ -252,7 +254,7 @@ class SaveExtraInfoTestCase(TestCase):
             "is_phone_validated": True,
             "arabic_first_name": "أناكين",
             "arabic_last_name": "سكاي ووكر",
-            "national_id": "1234512347",
+            "national_id": "1234512349",
             "occupation": "student",
         }
 
@@ -324,3 +326,55 @@ class NormalizeNationalIdTestCase(TestCase):
             - An empty string is returned.
         """
         self.assertEqual(normalize_national_id(national_id), "")
+
+
+@ddt
+class IsValidNationalIdCheckDigitTestCase(TestCase):
+    """Test class for is_valid_national_id_check_digit."""
+
+    @data("1063590648", "1106830720", "1043822608", "1098538166", "2000000006")
+    def test_valid_check_digit(self, national_id):
+        """Real national and resident IDs pass.
+
+        Expected behavior:
+            - Returns True.
+        """
+        self.assertTrue(is_valid_national_id_check_digit(national_id))
+
+    @data("1063690648", "1106830722", "1110834029", "2000000005")
+    def test_single_digit_typo_fails(self, national_id):
+        """IDs with one mistyped digit (prod cases) fail.
+
+        Expected behavior:
+            - Returns False.
+        """
+        self.assertFalse(is_valid_national_id_check_digit(national_id))
+
+    @data("", None, "0000000000", "129035381", "abcdefghij", "١٠٤٣٨٢٢٦٠٨", 1043822608)
+    def test_wrong_shape_fails(self, national_id):
+        """Values without the national ID shape fail, Arabic-Indic digits must be normalized first.
+
+        Expected behavior:
+            - Returns False.
+        """
+        self.assertFalse(is_valid_national_id_check_digit(national_id))
+
+
+class NationalIdVariantsTestCase(TestCase):
+    """Test class for national_id_variants."""
+
+    def test_ascii_and_arabic_indic_forms(self):
+        """Both stored forms are returned.
+
+        Expected behavior:
+            - The ASCII value first, then the Arabic-Indic one.
+        """
+        self.assertEqual(national_id_variants("1043822608"), ["1043822608", "١٠٤٣٨٢٢٦٠٨"])
+
+    def test_value_without_digits(self):
+        """A value without digits has a single form.
+
+        Expected behavior:
+            - Returns the value alone.
+        """
+        self.assertEqual(national_id_variants("del-x"), ["del-x"])

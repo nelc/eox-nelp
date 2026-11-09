@@ -3,12 +3,18 @@
 functions:
     social_details: Allows to map response fields to user standard fields.
     invalidate_current_user: Sets to None the current user.
+    refuse_linked_user_with_other_national_id: Stops a login linked to an account of another person.
+    associate_user_by_national_id_claim: Matches the account holding the asserted national ID.
+    refuse_unmatched_email_conflict: Stops a login whose email belongs to an unmatched account.
+    sync_national_id_from_claim: Stores the asserted national ID on every login.
 """
 import logging
 
+from custom_reg_form.models import ExtraInfo
 from django.conf import settings
 from django.contrib.auth import get_user_model, logout
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.db import IntegrityError, transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
@@ -18,10 +24,29 @@ from social_core.pipeline.social_auth import social_details as social_core_detai
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
 from eox_nelp.edxapp_wrapper.third_party_auth import Registry
 from eox_nelp.edxapp_wrapper.user_authn import get_registration_extension_form
-from eox_nelp.third_party_auth.utils import get_value_from_nested_dict, match_user_using_uid_query
+from eox_nelp.third_party_auth.utils import (
+    get_national_id_claim,
+    get_value_from_nested_dict,
+    match_user_using_uid_query,
+)
+from eox_nelp.utils import is_valid_national_id_check_digit, national_id_variants, normalize_national_id
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+SSO_REFUSAL_HEADER = "تعذّر إكمال تسجيل الدخول / Sign-in could not be completed"
+SSO_NATIONAL_ID_MISMATCH_CONTENT = (
+    "رقم الهوية الوطنية المرسل من جهة الدخول لا يطابق رقم الهوية المسجل في هذا الحساب، "
+    "لذلك لم نكمل الدخول حفاظًا على بيانات الحساب. يرجى التواصل مع الدعم. "
+    "The national ID sent by your sign-in provider does not match the national ID of this account, "
+    "so sign-in was stopped to protect the account. Please contact support."
+)
+SSO_EMAIL_CONFLICT_CONTENT = (
+    "يوجد حساب آخر بنفس البريد الإلكتروني ولا يحمل رقم هويتك الوطنية، لذلك لم ننشئ حسابًا ولم نربطك به. "
+    "يرجى التواصل مع الدعم. "
+    "Another account uses the same email address and does not hold your national ID, so no account "
+    "was created or linked. Please contact support."
+)
 
 
 def social_details(backend, details, response, *args, **kwargs):
@@ -295,3 +320,178 @@ def safer_associate_user_by_attribute(backend, response, *args, user=None, **kwa
         "user": matched_user,
         "is_new": False,
     }
+
+
+def _refuse_sso_login(request, page_content):
+    """Close the session and answer with a forbidden page instead of a redirect.
+
+    A redirect would send the learner back to the identity provider on SSO-only tenants, where
+    the provider's open session answers at once and the browser loops without an error.
+    """
+    logout(request)
+
+    return HttpResponseForbidden(
+        edxmako.shortcuts.render_to_string(
+            "static_templates/server-error.html",
+            {
+                "page_header": SSO_REFUSAL_HEADER,
+                "page_content": page_content,
+            },
+            request=request,
+        )
+    )
+
+
+def _get_stored_national_id(user):
+    """Return the normalized national_id stored for the user, or an empty string."""
+    return normalize_national_id(getattr(getattr(user, "extrainfo", None), "national_id", None))
+
+
+def refuse_linked_user_with_other_national_id(  # pylint: disable=unused-argument
+    request, backend, response, *args, user=None, **kwargs,
+):
+    """Refuse the login when the account already linked to this identity holds another valid national ID.
+
+    Place it right after `social_core.pipeline.social_auth.social_user`. Such a link was created
+    by an earlier email or session association and joins two people in one account, so logging in
+    would show one person the other's records. An empty or invalid stored national ID is not a
+    conflict, `sync_national_id_from_claim` corrects it.
+
+    Returns:
+        HttpResponseForbidden: When the stored and asserted national IDs are both valid and differ.
+        dict: Empty otherwise, so the pipeline continues.
+    """
+    if not user:
+        return {}
+
+    claim = get_national_id_claim(backend, response)
+    stored = _get_stored_national_id(user)
+
+    if not claim or stored == claim or not is_valid_national_id_check_digit(stored):
+        return {}
+
+    logger.warning(
+        "SSO login refused: the linked user %s holds a different national ID than the one asserted by %s.",
+        user.id,
+        backend.name,
+    )
+
+    return _refuse_sso_login(request, SSO_NATIONAL_ID_MISMATCH_CONTENT)
+
+
+def associate_user_by_national_id_claim(  # pylint: disable=unused-argument
+    backend, response, *args, user=None, **kwargs,
+):
+    """Associate the login with the only account whose extrainfo.national_id equals the asserted national ID.
+
+    Unlike `safer_associate_user_by_attribute`, the claim is normalized and must carry a valid
+    check digit, and rows stored with Arabic-Indic digits are matched too. No match or more than
+    one match leaves the user unset, so a new account is created.
+
+    Returns:
+        dict: {"user": User, "is_new": False} when exactly one account holds the national ID.
+        None: Otherwise.
+    """
+    if user:
+        return None
+
+    claim = get_national_id_claim(backend, response)
+
+    if not claim:
+        return None
+
+    holders = list(User.objects.filter(extrainfo__national_id__in=national_id_variants(claim))[:2])
+
+    if len(holders) != 1:
+        if holders:
+            logger.warning("SSO association by national ID skipped: more than one account holds it.")
+        return None
+
+    return {
+        "user": holders[0],
+        "is_new": False,
+    }
+
+
+def refuse_unmatched_email_conflict(request, details, *args, user=None, **kwargs):  # pylint: disable=unused-argument
+    """Refuse the login when no account matched but the asserted email already belongs to an account.
+
+    Place it after the association steps and before `ensure_user_information`. That account is
+    not linked to this identity and does not hold its national ID, so it may belong to someone
+    else; joining it is what mixed two people's records. A new account cannot take the same
+    email either, and the stock flow would redirect to the login page, which loops back to the
+    identity provider on SSO-only tenants.
+
+    Returns:
+        HttpResponseForbidden: When the email is taken and no account was matched.
+        dict: Empty otherwise, so the pipeline continues.
+    """
+    if user:
+        return {}
+
+    email = (details or {}).get("email")
+
+    if not email or not User.objects.filter(email__iexact=email).exists():
+        return {}
+
+    logger.warning("SSO login refused: no account matched and the asserted email belongs to another account.")
+
+    return _refuse_sso_login(request, SSO_EMAIL_CONFLICT_CONTENT)
+
+
+def sync_national_id_from_claim(backend, response, *args, user=None, **kwargs):  # pylint: disable=unused-argument
+    """Store the asserted national ID in extrainfo.national_id on every login.
+
+    Place it after the user is created or associated. The value is written only when the claim
+    is valid and differs from the stored value. It is never written when another account
+    already holds it, and a different valid stored value is never overwritten (the login was
+    refused earlier by `refuse_linked_user_with_other_national_id`). Only the national_id field
+    is saved, so an invalid value in another ExtraInfo field cannot break the login.
+
+    Returns:
+        dict: Always empty, a refused sync is logged and the login continues.
+    """
+    claim = get_national_id_claim(backend, response) if user else ""
+
+    if not claim:
+        return {}
+
+    extra_info = getattr(user, "extrainfo", None) or ExtraInfo(user=user)
+    skip_reason = _get_national_id_sync_skip_reason(user, extra_info.national_id or "", claim)
+
+    if skip_reason:
+        if skip_reason != "unchanged":
+            logger.warning("National ID sync skipped for user %s: %s.", user.id, skip_reason)
+        return {}
+
+    extra_info.national_id = claim
+
+    try:
+        with transaction.atomic():
+            if extra_info.pk:
+                extra_info.save(update_fields=["national_id"])
+            else:
+                extra_info.save()
+    except IntegrityError:
+        logger.warning("National ID sync failed: the national ID of user %s was taken concurrently.", user.id)
+        return {}
+
+    logger.info("National ID of user %s synchronized from %s.", user.id, backend.name)
+
+    return {}
+
+
+def _get_national_id_sync_skip_reason(user, current, claim):
+    """Return why the asserted national ID must not be written, or an empty string when it may."""
+    stored = normalize_national_id(current)
+
+    if current == claim:
+        return "unchanged"
+
+    if stored != claim and is_valid_national_id_check_digit(stored):
+        return "the account holds a different valid national ID"
+
+    if User.objects.filter(extrainfo__national_id__in=national_id_variants(claim)).exclude(pk=user.pk).exists():
+        return "another account already holds the national ID"
+
+    return ""

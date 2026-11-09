@@ -25,6 +25,15 @@ NATIONAL_ID_LOCKED_MESSAGE = (
     "لا يمكن تعديل رقم الهوية الوطنية ذاتيًا لحسابات أصحاب صلاحيات الجهات، يرجى التواصل مع الدعم. "
     "National ID cannot be changed here for accounts holding institution roles; please contact support."
 )
+# Accounts linked to these social auth providers (UserSocialAuth.provider, the backend name) get their
+# national_id from the identity provider on every login, so it is not edited by hand. Empty disables it.
+DEFAULT_NATIONAL_ID_LOCKED_SOCIAL_PROVIDERS = []
+NATIONAL_ID_SSO_LOCKED_MESSAGE = (
+    "رقم الهوية الوطنية لهذا الحساب يُحدَّث تلقائيًا من جهة الدخول الموحد ولا يمكن تعديله يدويًا، "
+    "يرجى التواصل مع الدعم. "
+    "This account's national ID is updated automatically by its sign-in provider and cannot be changed here; "
+    "please contact support."
+)
 
 
 def update_account(user, data):
@@ -112,9 +121,30 @@ def holds_institution_role(user):
     ).exists()
 
 
+def holds_locked_social_link(user):
+    """
+    Return whether the user is linked to a social auth provider listed in
+    EOX_NELP_NATIONAL_ID_LOCKED_SOCIAL_PROVIDERS.
+
+    Args:
+        user (User): The Django user instance.
+
+    Returns:
+        bool: True when such a link exists, False otherwise or when the setting is empty.
+    """
+    providers = getattr(
+        settings, "EOX_NELP_NATIONAL_ID_LOCKED_SOCIAL_PROVIDERS", DEFAULT_NATIONAL_ID_LOCKED_SOCIAL_PROVIDERS,
+    )
+    if not providers:
+        return False
+
+    return user.social_auth.filter(provider__in=list(providers)).exists()
+
+
 def check_national_id_lock(user, extra_info_data):
     """
-    Refuse a self-service change of national_id for accounts holding an institution role.
+    Refuse a self-service change of national_id for accounts holding an institution role, or
+    linked to a social auth provider that asserts the national ID (see holds_locked_social_link).
 
     Re-sending the current value is allowed, since profile forms submit every field. Setting it
     for the first time is refused too, so one admin cannot claim another admin's unset ID.
@@ -137,3 +167,6 @@ def check_national_id_lock(user, extra_info_data):
 
     if holds_institution_role(user):
         raise errors.AccountValidationError({"national_id": [NATIONAL_ID_LOCKED_MESSAGE]})
+
+    if holds_locked_social_link(user):
+        raise errors.AccountValidationError({"national_id": [NATIONAL_ID_SSO_LOCKED_MESSAGE]})

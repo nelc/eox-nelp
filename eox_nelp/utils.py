@@ -12,6 +12,7 @@ from eox_nelp.edxapp_wrapper.user_api import errors
 
 NATIONAL_ID_REGEX = r"^[1-2]\d{9}$"
 ARABIC_INDIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+ASCII_TO_ARABIC_INDIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 COURSE_ID_REGEX = r'(course-v1:[^/+]+(/|\+)[^/+]+(/|\+)[^/?]+)'
 
 
@@ -106,6 +107,52 @@ def is_valid_national_id(national_id, raise_exception=False):
         )
 
     return check_national_id
+
+
+def is_valid_national_id_check_digit(national_id):
+    """Validate the shape and the check digit of a Saudi national or resident ID.
+
+    The last digit is a Luhn check digit: the digits at even positions (0-based, from the left)
+    are doubled, 9 is subtracted from any result above 9, and the sum of all digits must be a
+    multiple of 10. A single mistyped digit always fails this check.
+
+    Args:
+        national_id: The ASCII national_id to check, normalize it first.
+
+    Returns:
+        True if the national_id has the expected shape and a valid check digit, False otherwise.
+    """
+    if not isinstance(national_id, str) or not is_valid_national_id(national_id):
+        return False
+
+    total = 0
+
+    for position, char in enumerate(national_id):
+        digit = int(char)
+
+        if position % 2 == 0:
+            digit *= 2
+            digit = digit - 9 if digit > 9 else digit
+
+        total += digit
+
+    return total % 10 == 0
+
+
+def national_id_variants(national_id):
+    """Return the forms a national_id may be stored in, ASCII and Arabic-Indic digits.
+
+    Legacy rows were stored verbatim, so a lookup by the normalized value alone misses them.
+
+    Args:
+        national_id: The normalized (ASCII) national_id.
+
+    Returns:
+        list: The distinct stored forms of the national_id.
+    """
+    arabic_indic = national_id.translate(ASCII_TO_ARABIC_INDIC_DIGITS)
+
+    return [national_id] if arabic_indic == national_id else [national_id, arabic_indic]
 
 
 def extract_course_id_from_string(string):

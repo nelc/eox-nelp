@@ -186,7 +186,7 @@ class UpdateUserDataTestCase(POSTAuthenticatedTestMixin, APITestCase):
             "arabic_name": "سكاي ووكر أناكين",
             "arabic_first_name": "أناكين",
             "arabic_last_name": "سكاي ووكر",
-            "national_id": "1234512345",
+            "national_id": "1234512349",
             "occupation": "student",
         }
         url_endpoint = reverse(self.reverse_viewname)
@@ -303,11 +303,11 @@ class UpdateUserDataTestCase(POSTAuthenticatedTestMixin, APITestCase):
         """
         self.create_extra_info("1000000305")
 
-        response = self.client.post(reverse(self.reverse_viewname), {"national_id": "1000000306"}, format="json")
+        response = self.client.post(reverse(self.reverse_viewname), {"national_id": "1000000313"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.extrainfo.refresh_from_db()
-        self.assertEqual(self.user.extrainfo.national_id, "1000000306")
+        self.assertEqual(self.user.extrainfo.national_id, "1000000313")
 
     @override_settings(
         ENABLE_OTP_VALIDATION=False,
