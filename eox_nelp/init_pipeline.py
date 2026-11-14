@@ -45,12 +45,17 @@ Functions:
     patch_scorm_get_file_path:
         Fixes SCORM package uploads on Google Cloud Storage (openedx-scorm-xblock 19.0.5).
         See `eox_nelp.scorm_patches`.
+
+    patch_profile_image_throttle:
+        Gives the edx-platform profile image views a per-user rate limit.
+        See `eox_nelp.profile_image_patches`.
 """
 
 import os
 
 from django.utils.translation import gettext_noop
 
+from eox_nelp.profile_image_patches import patch_profile_image_throttle
 from eox_nelp.scorm_patches import patch_scorm_get_file_path
 
 CORE_ENROLLMENT_ROUTE = "edxapp-enrollment"  # name of eox-core's enrollment URLPattern
@@ -73,6 +78,7 @@ def run_lms_init_pipeline():
     take_over_core_user_route()
     register_learner_email_tasks()
     patch_scorm_get_file_path()
+    patch_profile_image_throttle()
 
 
 def register_learner_email_tasks():

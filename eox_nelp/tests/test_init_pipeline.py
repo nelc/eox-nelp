@@ -61,16 +61,19 @@ class RunInitPipelineTestCase(TestCase):
         take_over_core_enrollment_route=DEFAULT,
         register_learner_email_tasks=DEFAULT,
         patch_scorm_get_file_path=DEFAULT,
+        patch_profile_image_throttle=DEFAULT,
     )
     def test_pipeline_registers_learner_email_tasks(self, **mocks):
         """The LMS pipeline loads the learner-email tasks (Studio's pipeline does not).
 
         Expected behavior:
             - register_learner_email_tasks is called once.
+            - patch_profile_image_throttle is called once.
         """
         run_lms_init_pipeline()
 
         mocks["register_learner_email_tasks"].assert_called_once()
+        mocks["patch_profile_image_throttle"].assert_called_once()
 
 
 class RegisterLearnerEmailTasksTestCase(TestCase):
