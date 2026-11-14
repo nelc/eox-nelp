@@ -12,7 +12,6 @@ Available Views:
 import logging
 
 from django.conf import settings
-from django.db import transaction
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -55,11 +54,10 @@ def update_user_data(request):
     ```
     """
     try:
-        with transaction.atomic():
-            user = request.user
-            data = request.data
-            update_account(user, data)
-            update_extrainfo(user, data)
+        user = request.user
+        data = request.data
+        update_account(user, data)
+        update_extrainfo(user, data)
     except errors.AccountValidationError as err:
         return Response({"field_errors": err.field_errors}, status=status.HTTP_400_BAD_REQUEST)
     except errors.AccountUpdateError as err:
