@@ -5,6 +5,8 @@ Classes:
     SetMakoTemplatesTestCase: Tests cases for set_mako_templates method.
 """
 import os
+import subprocess
+import sys
 from unittest.mock import call
 
 from celery import current_app
@@ -14,6 +16,29 @@ from mock import DEFAULT, patch
 from eox_nelp import static as templates
 from eox_nelp.edxapp_wrapper.edxmako import edxmako
 from eox_nelp.init_pipeline import register_learner_email_tasks, run_lms_init_pipeline, set_mako_templates
+
+
+class InitPipelineImportTestCase(TestCase):
+    """The init pipeline is imported while the Django settings are still loading."""
+
+    def test_import_does_not_read_the_settings(self):
+        """Importing the init pipeline with no settings module must work.
+
+        `lms/envs/production.py` loads the plugin apps before the settings are complete, which imports
+        `eox_nelp.apps` and this module. A settings read at import time (for example a top-level import of
+        `rest_framework.throttling`) leaves Django with half-built settings and the LMS does not boot.
+
+        Expected behavior:
+            - A fresh interpreter with no DJANGO_SETTINGS_MODULE imports eox_nelp.init_pipeline without error.
+        """
+        environment = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+
+        result = subprocess.run(
+            [sys.executable, "-c", "import eox_nelp.init_pipeline"],
+            capture_output=True, text=True, env=environment, check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class RunInitPipelineTestCase(TestCase):
