@@ -9,32 +9,18 @@ default throttle class, so a logged-in user can send them without limit
 The patch gives those views a per-user throttle. A view that already declares
 its own throttle is left alone, so an upstream fix is never overwritten.
 Remove this module once edx-platform throttles these views itself.
+
+`eox_nelp.apps` imports this module while the Django settings are still
+loading, so nothing here may read the settings at import time: the throttle
+class (Django REST framework) is imported inside the patch function.
 """
 import logging
 from importlib import import_module
-
-from django.conf import settings
-from rest_framework.throttling import UserRateThrottle
 
 logger = logging.getLogger(__name__)
 
 PROFILE_IMAGE_VIEWS_MODULE = "openedx.core.djangoapps.profile_images.views"
 PROFILE_IMAGE_VIEW_NAMES = ("ProfileImageView", "ProfileImageUploadView", "ProfileImageRemoveView")
-DEFAULT_PROFILE_IMAGE_THROTTLE_RATE = "10/minute"
-
-
-class ProfileImageRateThrottle(UserRateThrottle):
-    """Per-user limit shared by every profile image view."""
-
-    scope = "profile_image"
-
-    def get_rate(self):
-        """
-        .. setting_name: EOX_NELP_PROFILE_IMAGE_THROTTLE_RATE
-        .. setting_default: 10/minute
-        .. setting_description: How many profile image uploads and removals one user may send, as a DRF rate.
-        """
-        return getattr(settings, "EOX_NELP_PROFILE_IMAGE_THROTTLE_RATE", DEFAULT_PROFILE_IMAGE_THROTTLE_RATE)
 
 
 def patch_profile_image_throttle():
@@ -43,6 +29,8 @@ def patch_profile_image_throttle():
         views = import_module(PROFILE_IMAGE_VIEWS_MODULE)
     except ImportError:
         return
+
+    from eox_nelp.profile_image_throttle import ProfileImageRateThrottle  # pylint: disable=import-outside-toplevel
 
     for name in PROFILE_IMAGE_VIEW_NAMES:
         view = getattr(views, name, None)

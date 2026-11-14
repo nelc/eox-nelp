@@ -11,11 +11,8 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from eox_nelp import profile_image_patches
-from eox_nelp.profile_image_patches import (
-    DEFAULT_PROFILE_IMAGE_THROTTLE_RATE,
-    ProfileImageRateThrottle,
-    patch_profile_image_throttle,
-)
+from eox_nelp.profile_image_patches import patch_profile_image_throttle
+from eox_nelp.profile_image_throttle import DEFAULT_PROFILE_IMAGE_THROTTLE_RATE, ProfileImageRateThrottle
 
 User = get_user_model()
 
