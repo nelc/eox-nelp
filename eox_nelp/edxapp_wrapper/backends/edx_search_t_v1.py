@@ -21,7 +21,7 @@ def get_search_urls_module():
 
 
 def get_search_meilisearch_module():
-    """Return the `search.meilisearch` module (`INDEX_FILTERABLES`, `create_indexes`)."""
+    """Return `search.meilisearch` (INDEX_FILTERABLES, MeilisearchEngine, get_search_params, process_results)."""
     return meilisearch
 
 

@@ -2,10 +2,11 @@
 
 Attributes:
     backend: Imported module by using the plugin settings.
-    search_api: `search.api` (SearchFilterGenerator, SearchEngine, NoSearchEngineError, discovery settings).
+    search_api: `search.api` (stock course_discovery_search, SearchFilterGenerator, SearchEngine, NoSearchEngineError).
     search_views: `search.views` (the stock `course_discovery` view).
     search_urls: `search.urls` (the URLPatterns mounted by the LMS under `search/`).
-    search_meilisearch: `search.meilisearch` (`INDEX_FILTERABLES`).
+    search_meilisearch: `search.meilisearch` (`INDEX_FILTERABLES`, `MeilisearchEngine`, `get_search_params`,
+        `process_results`).
     DateRange: `search.utils.DateRange`.
 """
 from importlib import import_module

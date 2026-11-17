@@ -40,7 +40,7 @@ Functions:
 
     take_over_course_discovery_route:
         Points edx-search's `course_discovery` URL pattern at the eox-nelp view, which lists a course on
-        /courses until the course ends instead of until enrollment closes. See `eox_nelp.course_discovery`.
+        /courses while enrollment is open OR the course has not ended. See `eox_nelp.course_discovery`.
 
     make_course_end_filterable:
         Adds `end` to edx-search's Meilisearch filterable attributes of the course_info index, so
@@ -255,7 +255,7 @@ def take_over_core_route(route_name, view_class):
 
 
 def take_over_course_discovery_route():
-    """Make POST /search/course_discovery/ run the eox-nelp view (courses stay listed until they end)."""
+    """Make POST /search/course_discovery/ run the eox-nelp view (listed while enrolling OR not ended)."""
     # pylint: disable=import-outside-toplevel
     # edx-search reads the settings when its modules are imported.
     from eox_nelp.course_discovery.views import course_discovery
