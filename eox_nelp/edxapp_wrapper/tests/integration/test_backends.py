@@ -18,6 +18,7 @@ def test_current_settings_code_imports():
     import eox_nelp.edxapp_wrapper.backends.course_overviews_m_v1
     import eox_nelp.edxapp_wrapper.backends.courseware_m_v1
     import eox_nelp.edxapp_wrapper.backends.django_comment_common_r_v1
+    import eox_nelp.edxapp_wrapper.backends.edx_search_t_v1
     import eox_nelp.edxapp_wrapper.backends.edxmako_m_v1
     import eox_nelp.edxapp_wrapper.backends.event_routing_backends_m_v1
     import eox_nelp.edxapp_wrapper.backends.grades_m_v1

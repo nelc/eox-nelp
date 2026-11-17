@@ -84,6 +84,8 @@ class RunInitPipelineTestCase(TestCase):
         patch_form_fields_getattr=DEFAULT,
         disconnect_update_last_login_signal=DEFAULT,
         take_over_core_enrollment_route=DEFAULT,
+        take_over_course_discovery_route=DEFAULT,
+        make_course_end_filterable=DEFAULT,
         register_learner_email_tasks=DEFAULT,
         patch_scorm_get_file_path=DEFAULT,
         patch_profile_image_throttle=DEFAULT,
@@ -94,11 +96,14 @@ class RunInitPipelineTestCase(TestCase):
         Expected behavior:
             - register_learner_email_tasks is called once.
             - patch_profile_image_throttle is called once.
+            - the course discovery route takeover and the `end` filterable run once.
         """
         run_lms_init_pipeline()
 
         mocks["register_learner_email_tasks"].assert_called_once()
         mocks["patch_profile_image_throttle"].assert_called_once()
+        mocks["take_over_course_discovery_route"].assert_called_once()
+        mocks["make_course_end_filterable"].assert_called_once()
 
 
 class RegisterLearnerEmailTasksTestCase(TestCase):

@@ -38,6 +38,14 @@ Functions:
         Points eox-core's `edxapp-user` URL pattern at `NelpEdxappUser`, which answers 400 instead
         of 500 when account creation rejects a field. Same mechanism as the enrollment takeover.
 
+    take_over_course_discovery_route:
+        Points edx-search's `course_discovery` URL pattern at the eox-nelp view, which lists a course on
+        /courses until the course ends instead of until enrollment closes. See `eox_nelp.course_discovery`.
+
+    make_course_end_filterable:
+        Adds `end` to edx-search's Meilisearch filterable attributes of the course_info index, so
+        `create_indexes()` makes it filterable.
+
     patch_form_fields_getattr:
         Dynamically patches the `form_fields` module to include a custom `__getattr__`
         method, enabling runtime generation of field handlers based on configuration.
@@ -60,6 +68,8 @@ from eox_nelp.scorm_patches import patch_scorm_get_file_path
 
 CORE_ENROLLMENT_ROUTE = "edxapp-enrollment"  # name of eox-core's enrollment URLPattern
 CORE_USER_ROUTE = "edxapp-user"  # name of eox-core's create-user URLPattern
+COURSE_DISCOVERY_ROUTE = "course_discovery"  # name of edx-search's course discovery URLPattern
+COURSE_END_FIELD = "end"  # course end date in the course_info search documents
 
 
 def run_lms_init_pipeline():
@@ -76,6 +86,8 @@ def run_lms_init_pipeline():
     disconnect_update_last_login_signal()
     take_over_core_enrollment_route()
     take_over_core_user_route()
+    take_over_course_discovery_route()
+    make_course_end_filterable()
     register_learner_email_tasks()
     patch_scorm_get_file_path()
     patch_profile_image_throttle()
@@ -235,25 +247,66 @@ def take_over_core_user_route():
 
 
 def take_over_core_route(route_name, view_class):
-    """
-    Point eox-core's URLPattern named `route_name` at `view_class`.
+    """Point eox-core's URLPattern named `route_name` at `view_class` (see `take_over_route`)."""
+    # pylint: disable=import-outside-toplevel
+    from eox_core.api.v1 import urls as core_urls
 
-    eox-core mounts itself as a plugin and builds its routes with `<View>.as_view()` at import
-    time, and plugin URL order is not a contract, so a second route for the same URL may lose.
-    Instead we swap the `callback` of eox-core's own URLPattern: the module is a singleton shared
-    by every URL resolver, and Django reads `callback` at request time, so this holds whatever the
-    plugin or app order. Fails loudly if eox-core renames or removes the route.
+    take_over_route(core_urls, route_name, view_class.as_view(), "eox-core")
+
+
+def take_over_course_discovery_route():
+    """Make POST /search/course_discovery/ run the eox-nelp view (courses stay listed until they end)."""
+    # pylint: disable=import-outside-toplevel
+    # edx-search reads the settings when its modules are imported.
+    from eox_nelp.course_discovery.views import course_discovery
+    from eox_nelp.edxapp_wrapper.edx_search import search_urls
+
+    take_over_route(search_urls, COURSE_DISCOVERY_ROUTE, course_discovery, "edx-search")
+
+
+def take_over_route(urls_module, route_name, callback, owner):
+    """
+    Point the URLPattern named `route_name` in `urls_module` at `callback`.
+
+    Plugins (eox-core) and edx-platform (edx-search) build these routes at import time, and URL order is
+    not a contract, so a second route for the same URL may lose. Instead we swap the `callback` of the
+    owner's own URLPattern: the module is a singleton shared by every URL resolver, and Django reads
+    `callback` at request time, so this holds whatever the plugin or app order. Fails loudly if the
+    owner renames or removes the route.
     """
     # pylint: disable=import-outside-toplevel
     from django.core.exceptions import ImproperlyConfigured
-    from eox_core.api.v1 import urls as core_urls
 
-    routes = [route for route in core_urls.urlpatterns if route.name == route_name]
+    routes = [route for route in urls_module.urlpatterns if route.name == route_name]
     if len(routes) != 1:
         raise ImproperlyConfigured(
-            f"eox-nelp takeover: expected exactly one eox-core route named "
-            f"'{route_name}', found {len(routes)}. eox-core changed; review the override."
+            f"eox-nelp takeover: expected exactly one {owner} route named "
+            f"'{route_name}', found {len(routes)}. {owner} changed; review the override."
         )
     route = routes[0]
-    route.callback = view_class.as_view()
+    route.callback = callback
     route.__dict__.pop("lookup_str", None)  # cached name of the old callback, only used for display
+
+
+def make_course_end_filterable():
+    """
+    Add `end` to the Meilisearch filterable attributes edx-search sets on the course_info index.
+
+    `search.meilisearch.create_indexes()` (run by the LMS init job) makes every attribute listed in
+    `INDEX_FILTERABLES` filterable, keeping the ones the index already has. Without `end` there, the
+    eox-nelp course discovery filter fails with `invalid_search_filter`.
+    """
+    # pylint: disable=import-outside-toplevel
+    from django.core.exceptions import ImproperlyConfigured
+
+    from eox_nelp.course_discovery.api import course_info_index_name
+    from eox_nelp.edxapp_wrapper.edx_search import search_meilisearch
+
+    filterables = search_meilisearch.INDEX_FILTERABLES.get(course_info_index_name())
+    if filterables is None:
+        raise ImproperlyConfigured(
+            f"eox-nelp: edx-search has no filterable attributes for the '{course_info_index_name()}' "
+            "index. edx-search changed; review make_course_end_filterable."
+        )
+    if COURSE_END_FIELD not in filterables:
+        filterables.append(COURSE_END_FIELD)
